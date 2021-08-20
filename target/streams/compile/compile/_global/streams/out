@@ -1,0 +1,6 @@
+[0m[[0m[31merror[0m] [0m[0m/home/labra/src/wikidata/sparkwdsub/src/main/scala/es/weso/wdsubmain/Main.scala:118:172: type mismatch;[0m
+[0m[[0m[31merror[0m] [0m[0m found   : es.weso.sparkwdsub.Helpers.ShapeLabel[0m
+[0m[[0m[31merror[0m] [0m[0m required: scala.collection.GenSet[es.weso.sparkwdsub.Helpers.ShapeLabel][0m
+[0m[[0m[31merror[0m] [0m[0m      Entity(id = e.id, vertexId = e.vertexId, label = e.label, shapesInfo = ShapesInfo(pendingShapes = e.shapesInfo.pendingShapes, okShapes = e.shapesInfo.okShapes.union(shape), noShapes = e.shapesInfo.noShapes))[0m
+[0m[[0m[31merror[0m] [0m[0m                                                                                                                                                                           ^[0m
+[0m[[0m[31merror[0m] [0m[0mone error found[0m

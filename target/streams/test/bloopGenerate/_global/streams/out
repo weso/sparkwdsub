@@ -1,0 +1,4 @@
+[debug] [sparkWdsubRoot-test] Classpath dependencies List()
+[debug] [sparkWdsubRoot-test] Dependencies from configurations List(sparkWdsubRoot)
+[debug] Bloop wrote the configuration of project 'sparkWdsubRoot-test' to '/home/labra/src/wikidata/sparkwdsub/.bloop/sparkWdsubRoot-test.json'
+[success] Generated .bloop/sparkWdsubRoot-test.json

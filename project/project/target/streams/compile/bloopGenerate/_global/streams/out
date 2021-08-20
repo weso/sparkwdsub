@@ -1,0 +1,4 @@
+[debug] [sparkwdsub-build-build] Classpath dependencies List()
+[debug] [sparkwdsub-build-build] Dependencies from configurations List()
+[debug] Bloop wrote the configuration of project 'sparkwdsub-build-build' to '/home/labra/src/wikidata/sparkwdsub/project/project/.bloop/sparkwdsub-build-build.json'
+[success] Generated .bloop/sparkwdsub-build-build.json
