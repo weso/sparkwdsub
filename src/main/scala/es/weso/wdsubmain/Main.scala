@@ -4,12 +4,90 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark._
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
-// import es.weso.wshex._
 import Helpers._
 import es.weso.rdf.nodes._
 import scala.jdk.CollectionConverters._
+import es.weso.collection.Bag
 
 object SimpleApp {
+
+  def runShEx(schema: Schema, graph: Graph[Value, Property]): Graph[ShapedValue,Property] = {
+
+    val shapedGraph: Graph[ShapedValue,Property] = 
+      graph.mapVertices{ case (vid,value) => ShapedValue(value)}
+
+    def maxIterations = 3
+
+    // We start with pending shape Start
+    def initialMsg: Msg = Msg(validate = Set(ShapeLabel("Start")))
+
+    def vprog(schema: Schema)(
+      id: VertexId, 
+      v: ShapedValue, 
+      msg: Msg): ShapedValue = {
+       println(s"vprog: $id, v: $v, msg: $msg") 
+       // Match outgoing bag of arcs with current pending shapes
+       val checkedValue = checkBag(v, Bag.toBag(msg.outgoing), schema)
+       // Add pending shapes from msg
+       val newValue = v.validatePendingShapes(schema, msg.validate)
+//       val newValue = checkedValue.addPendingShapes(msg.validate) 
+       println(s"VProg: vertexId: $id - newValue: $newValue")
+       newValue
+    }
+
+
+    def checkBag(
+      v: ShapedValue, 
+      neighs: Bag[PropertyId], 
+      schema: Schema
+      ): ShapedValue = {
+
+      val newValue = v.shapesInfo.pendingShapes.foldLeft(v){ 
+        case (v,shapeLabel) => schema.get(shapeLabel) match {
+          case None => v.addNoShape(shapeLabel, ShapeNotFound(shapeLabel, schema))
+          case Some(se) => se.checkNeighs(neighs) match {
+            case Left(reason) => v.addNoShape(shapeLabel,reason)
+            case Right(_) => v.addOKShape(shapeLabel)
+          }
+        }
+      }
+    
+      println(s"After checkBag: $v ~ $neighs\n$newValue")
+      newValue
+    }
+
+    def sendMsg(schema: Schema)(t: EdgeTriplet[ShapedValue,Property]): Iterator[(VertexId, Msg)] = {
+      val shapeLabels = t.srcAttr.shapesInfo.pendingShapes
+      val ls = shapeLabels.map(sendMessagesPending(_, t, schema)).toIterator.flatten
+      ls
+    }
+
+    def sendMessagesPending(
+      shapeLabel: ShapeLabel, 
+      triplet: EdgeTriplet[ShapedValue,Property], 
+      schema: Schema): Iterator[(VertexId, Msg)] = {
+      val tcs = schema.getTripleConstraints(shapeLabel).filter(_.property == triplet.attr.id).toIterator
+      println(s"sendMessagesPending: $tcs")
+      tcs.map(sendMessagesTriplet(_, triplet)).flatten
+    } 
+
+    def sendMessagesTriplet(tc: TripleConstraint, triplet: EdgeTriplet[ShapedValue,Property]): Iterator[(VertexId,Msg)] = {
+      Iterator(
+       (triplet.srcId, Msg.outgoing(Set(triplet.attr.id))), // message to subject with outgoing arc
+       (triplet.dstId, Msg.validate(Set(tc.value.label))) // message to object with pending shape
+      )
+    }
+
+    def mergeMsg(p1: Msg, p2: Msg): Msg = p1.merge(p2) 
+
+    val validated: Graph[ShapedValue,Property] = 
+      shapedGraph.pregel(initialMsg, maxIterations)(
+        vprog(schema), 
+        sendMsg(schema), 
+        mergeMsg)
+
+    validated    
+  }
 
   def main(args: Array[String]) {
 
@@ -70,94 +148,16 @@ object SimpleApp {
     println(s"Graph triplets: ${graph.triplets.count()}")
     graph.triplets.collect().foreach(println(_))
 
-    val shapedGraph: Graph[ShapedValue,Property] = graph.mapVertices{ case (vid,value) => ShapedValue(value)}
 
-   
-    def maxIterations = 3
+    val schema = schemaResearcher
+
+    val validatedGraph = runShEx(schema, graph)
+    println(s"Validated triplets: ${validatedGraph.triplets.count()}")
+    validatedGraph.triplets.collect().foreach(println(_))
     
-    // The messages indicate the pending shapes on a node
-    type Msg = Set[ShapeLabel]
-
-    // We start with pending shape Start
-    def initialMsg: Msg = Set(ShapeLabel("Start"))
-
-    def vprog(id: VertexId, v: ShapedValue, msg: Msg): ShapedValue = {
-      val newValue = checkShapes(v, msg) 
-      println(s"VProg: vertexId: $id - newValue: $newValue")
-      newValue
-    }
-
-    def checkShapes(v: ShapedValue, shapes: PendingShapes): ShapedValue = {
-      shapes.foldLeft(v)(checkShape)
-    }
-
-    def checkShape(v: ShapedValue, shape: ShapeLabel): ShapedValue = shape.name match {
-      case "Start" => v.replaceShapeBy(shape, ShapeLabel("Researcher"))
-      case "Human" => v.value match {
-        case e: Entity if e.id == "Q5" => v.addOKShape(shape)
-        case _ => v.addNoShape(shape, ValueIsNot("Q5"))   
-      }
-//      case "Human" => e.validated(shape)
-//      case "Researcher" => e.validated(shape)
-      case _ => v.addOKShape(shape)
-    }
-
-    def sendMsg(t: EdgeTriplet[ShapedValue,Property]): Iterator[(VertexId, Msg)] = {
-//      println(s"sendMsg: Source vertex: ${t.srcAttr}\npendingShapes: ${t.srcAttr.shapesInfo.pendingShapes}")
-//      println(s"sendMsg: Property ${t.attr}")
-
-      val xs = t.srcAttr.shapesInfo.pendingShapes.toList.map(sendMsgPendingShape(_,t))
-      val vs: List[(VertexId,Msg)] = xs.flatten
-      vs.toIterator
-    }
-
-    lazy val noMore: List[(VertexId, PendingShapes)] = List()
-
-    def sendMsgPendingShape(shapeLabel: ShapeLabel, t: EdgeTriplet[ShapedValue,Property]): List[(VertexId, PendingShapes)] =  
-      shapeLabel.name match {
-        case "Start" => List((t.srcId, Set(ShapeLabel("Researcher"))))
-        case "Researcher" => t.attr.id match {
-          case "P31" => List((t.dstId, Set(ShapeLabel("Human"))))
-          case "P19" => List((t.dstId, Set(ShapeLabel("Place"))))
-          case _ => noMore
-        }
-        case "Human" => noMore
-        case "Place" => noMore
-        case _ => noMore
-      }
-
-    def mergeMsg(p1: Msg, p2: Msg): Msg = p1.union(p2) 
-
-    val validated = shapedGraph.pregel(initialMsg, maxIterations)(vprog,sendMsg, mergeMsg)
-    println(s"Validated triplets: ${validated.triplets.count()}")
-    validated.triplets.collect().foreach(println(_))
-
-
-/*    val updated = graph.mapVertices{ case (vid, value) => value.addShapeLabel(ShapeLabel("Map")) }
-    println(s"Updated triplets: ${updated.triplets.count()}")
-    updated.triplets.collect().foreach(println(_)) */
-
     sc.stop()
  
   }
 
-  def validateShapes(shapes: Set[ShapeLabel], value: Value): Value = shapes.foldRight(value){ case (shape, v) => validateShape(shape, v)}
-  
-  def validateShape(shape: ShapeLabel, value: Value): Value = shape.name match {
-    case "Start" => value match {
-     case e: Entity => 
-      Entity(id = e.id, vertexId = e.vertexId, label = e.label, shapesInfo = ShapesInfo(pendingShapes = e.shapesInfo.pendingShapes, okShapes = e.shapesInfo.okShapes.union(Set(shape)), noShapes = e.shapesInfo.noShapes))
-     case _ => copy(value)
-    }
-    case "Researcher" => value match {
-      case e: Entity => value
-      case _ => value
-    }
-  }
-
-  def copy(value: Value): Value = value
-
-
-    // value // value.addPendingShapes(shapes)
 
 }

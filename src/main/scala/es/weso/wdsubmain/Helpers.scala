@@ -12,17 +12,50 @@ import cats.data._
 import cats.implicits._
 // import es.weso.wshex._
 import org.apache.spark.graphx.Edge
+import es.weso.rbe.interval.IntOrUnbounded
+import es.weso.rbe.interval.IntLimit
+import es.weso.rbe._
+import es.weso.rbe.interval.IntervalChecker
+import es.weso.collection.Bag
+import es.weso.shex
 
 object Helpers {
 
   case class ShapedValue(
     value: Value, 
     shapesInfo: ShapesInfo = ShapesInfo()
-  ) {
+  ) extends Serializable {
 
-    def replaceShapeBy(shape1:ShapeLabel, shape2: ShapeLabel): ShapedValue = this.copy(shapesInfo = this.shapesInfo.replaceShapeBy(shape1,shape2))
-    def addOKShape(shape: ShapeLabel): ShapedValue = this.copy(shapesInfo = this.shapesInfo.addOkShape(shape))
-    def addNoShape(shape: ShapeLabel, reason: Reason): ShapedValue = this.copy(shapesInfo = this.shapesInfo.addNoShape(shape, reason))
+    def addPendingShapes(shapes: Set[ShapeLabel]): ShapedValue =
+      this.copy(shapesInfo = this.shapesInfo.addPendingShapes(shapes))
+    def addOKShape(shape: ShapeLabel): ShapedValue = 
+      this.copy(shapesInfo = this.shapesInfo.addOkShape(shape))
+    def addNoShape(shape: ShapeLabel, reason: Reason): ShapedValue = 
+      this.copy(shapesInfo = this.shapesInfo.addNoShape(shape, reason))
+
+    def validatePendingShapes(schema: Schema, shapes: Set[ShapeLabel]): ShapedValue = 
+      shapes.foldLeft(this){ case (v, shape) => v.validatePendingShape(schema, shape) }
+
+    def validatePendingShape(schema: Schema, shape: ShapeLabel): ShapedValue =
+      schema.get(shape) match {
+        case None => addNoShape(shape, ShapeNotFound(shape, schema))
+        case Some(ShapeRef(ref)) => validatePendingShape(schema, ref)
+        case Some(TripleConstraint(_,_,_,_)) => addPendingShapes(Set(shape))
+        case Some(EachOf(es)) => addPendingShapes(Set(shape))
+        case Some(EmptyExpr) => addOKShape(shape)
+        case Some(ValueSet(vs)) => this.value match {
+          case e: Entity => 
+            if (vs contains e.id) addOKShape(shape)
+            else addNoShape(shape,NoValueValueSet(e, vs))
+          case _ => addNoShape(shape,NoValueValueSet(this.value, vs))  
+        }
+      }
+
+  }
+
+  object ShapedValue {
+
+
   }
 
   case class ShapeLabel(name: String) extends Serializable
@@ -41,9 +74,139 @@ object Helpers {
     val vertexId: Long
   }
 
-  sealed abstract class Reason
+  sealed abstract class Reason extends Product with Serializable
   case class NoValueForProperty(prop: Property) extends Reason
   case class ValueIsNot(expectedId: String) extends Reason
+  case class ShapeNotFound(shapeLabel: ShapeLabel, schema: Schema) extends Reason
+  case class NoMatch(bag: Bag[PropertyId], rbe: Rbe[PropertyId], errors: NonEmptyList[RbeError]) extends Reason
+  case class NoValueValueSet(value: Value, valueSet: Set[String]) extends Reason
+
+  type PropertyId = String 
+
+  case class Msg(
+      validate: Set[ShapeLabel] = Set(), 
+      outgoing: Set[PropertyId] = Set()) extends Serializable {
+
+      def merge(other: Msg): Msg = {
+        Msg(
+          validate = this.validate.union(other.validate),
+          outgoing = this.outgoing.union(other.outgoing)
+        )
+      }
+
+      override def toString = s"Msg = ${
+        if (validate.isEmpty) "" else "Validate: " + validate.map(_.toString).mkString(",")
+      }${
+        if (outgoing.isEmpty) "" else "Arcs: " + outgoing.map(_.toString).mkString(",")
+      }"
+    } 
+
+  object Msg {
+      def validate(shapes: Set[ShapeLabel]): Msg = Msg(validate = shapes, Set())
+      def outgoing(arcs: Set[PropertyId]): Msg = Msg(Set(),arcs)
+  }
+
+
+  case class Schema(map: Map[ShapeLabel, ShapeExpr]) extends Serializable {
+
+    def get(shapeLabel: ShapeLabel): Option[ShapeExpr] = 
+      map.get(shapeLabel)
+
+    def getTripleConstraints(shapeLabel: ShapeLabel): List[TripleConstraint] = {
+      get(shapeLabel) match {
+        case None => List()
+        case Some(se) => se.tripleConstraints
+      }
+    }  
+
+  }
+
+  sealed abstract class ShapeExpr extends Product with Serializable {
+    def dependsOn(): Set[ShapeLabel] = this match {
+      case s: ShapeRef => Set(s.label)
+      case t: TripleConstraint => t.value.dependsOn
+      case eo: EachOf => eo.exprs.foldLeft(Set[ShapeLabel]()){ case (e,s) => e.union(s.dependsOn) }
+      case e: NodeConstraint => Set()
+      case EmptyExpr => Set() 
+    }
+
+    def rbe: Rbe[PropertyId] = this match {
+      case _: ShapeRef => Empty 
+      case t: TripleConstraint => Symbol(t.property, t.min, t.max)
+      case eo: EachOf => {
+        val empty: Rbe[PropertyId] = Empty
+        eo.exprs.foldLeft(empty){ case (e,b) => And(e,b.rbe)}
+      }
+      case _: NodeConstraint => Empty
+      case EmptyExpr => Empty
+    }
+
+    private lazy val checker = IntervalChecker(rbe)
+
+    val tripleConstraints: List[TripleConstraint] = this match {
+      case _: ShapeRef => List()
+      case t: TripleConstraint => List(t) 
+      case eo: EachOf => eo.exprs.map(_.tripleConstraints).flatten
+      case _: NodeConstraint => List()
+      case _ => List()
+    }
+
+    def checkNeighs(bag: Bag[PropertyId]): Either[Reason, Unit] =
+       checker.check(bag,true) match {
+         case Left(es) => Left(NoMatch(bag,rbe,es))
+         case Right(_) => Right(())
+       } 
+  }
+
+  case class ShapeRef(label: ShapeLabel) extends ShapeExpr 
+  case class TripleConstraint(property: String, value: ShapeRef, min: Int, max: IntOrUnbounded) extends ShapeExpr 
+  sealed abstract class TripleExpr extends ShapeExpr with Product with Serializable
+  case class EachOf(exprs: List[TripleConstraint]) extends TripleExpr 
+  case object EmptyExpr extends TripleExpr 
+  sealed abstract class NodeConstraint extends ShapeExpr 
+  case class ValueSet(values: Set[String]) extends NodeConstraint
+
+/*  sealed abstract class ShapeExpr extends Product with Serializable {
+    val rbe: Rbe[PropertyId] = Empty
+    val dependsOn: Set[ShapeLabel] = Set()
+    val tripleConstraints: List[TripleConstraint] = List()
+
+
+    def checkNeighs(bag: Bag[PropertyId]): Either[Reason, Unit] =
+       checker.check(bag,true) match {
+         case Left(es) => Left(NoMatch(bag,rbe,es))
+         case Right(_) => Right(())
+       }
+  }
+  
+  case class ShapeRef(label: ShapeLabel) extends ShapeExpr {
+    override val rbe = Empty
+    override val dependsOn: Set[ShapeLabel] = Set(label)
+    override val tripleConstraints: List[TripleConstraint] = List()
+  }
+  sealed abstract class TripleExpr extends ShapeExpr with Product with Serializable
+
+  case class TripleConstraint(property: String, value: ShapeRef, min: Int, max: IntOrUnbounded) extends ShapeExpr {
+    override val rbe = Symbol(property, min, max)
+    override val dependsOn = value.dependsOn
+    override val tripleConstraints: List[TripleConstraint] = List(this)
+  }
+
+*/
+  val schemaResearcher = Schema(
+    Map(
+      ShapeLabel("Start") -> ShapeRef(ShapeLabel("Researcher")),
+      ShapeLabel("Researcher") -> EachOf(List(
+        TripleConstraint("P31", ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
+        TripleConstraint("P19", ShapeRef(ShapeLabel("Place")),1,IntLimit(1))
+      )),
+      ShapeLabel("Place") -> EachOf(List(
+        TripleConstraint("P17", ShapeRef(ShapeLabel("Country")),1,IntLimit(1))
+      )),
+      ShapeLabel("Country") -> EmptyExpr,
+      ShapeLabel("Human") -> ValueSet(Set("Q5")) 
+    )
+  )
 
   case class ShapesInfo(
     pendingShapes: Set[ShapeLabel] = Set(), 
@@ -55,7 +218,7 @@ object Helpers {
     def replaceShapeBy(shape1: ShapeLabel, shape2: ShapeLabel) = 
       this.copy(pendingShapes = (this.pendingShapes - (shape1) + (shape2)))
 
-    def withPendingShapes(shapes: Set[ShapeLabel]): ShapesInfo =
+    def addPendingShapes(shapes: Set[ShapeLabel]): ShapesInfo =
       this.copy(pendingShapes = this.pendingShapes ++ shapes)
 
     def addOkShape(shape: ShapeLabel) = 
@@ -74,6 +237,13 @@ object Helpers {
         this.copy(pendingShapes = this.pendingShapes - shape, inconsistencies = this.inconsistencies + shape)
       else       
         this.copy(pendingShapes = this.pendingShapes - shape, noShapes = this.noShapes + shape)
+  
+    private def showPendingShapes(): String = s"Pending:${if (pendingShapes.isEmpty) "{}" else pendingShapes.map(_.name).mkString(",")}"
+    private def showOKShapes(): String = if (okShapes.isEmpty) "" else okShapes.map(_.name).mkString(",")
+    private def showNoShapes(): String = if (noShapes.isEmpty) "" else noShapes.map(_.name).mkString(",")
+
+    override def toString = showPendingShapes() + showOKShapes() + showNoShapes()
+  
   }
 
   object ShapesInfo {
@@ -84,25 +254,22 @@ object Helpers {
     id: String, 
     vertexId: Long, 
     label: String, 
-    siteIri: String = siteDefault,
-    shapesInfo: ShapesInfo = ShapesInfo.default
+    siteIri: String = siteDefault
     ) extends Value {
     def iri: IRI = IRI(siteIri + "/" + id)
-    override def toString = s"$id-$label@$vertexId||{${shapesInfo.pendingShapes.map(_.name).mkString(",")}}"
+    override def toString = s"$id-$label@$vertexId"
   }
 
   case class StringValue(
     str: String, 
-    vertexId: Long, 
-    shapesInfo: ShapesInfo = ShapesInfo.default
+    vertexId: Long
     ) extends Value {
     override def toString = s"$str@$vertexId"
   }
 
   case class DateValue(
     date: String, 
-    vertexId: Long, 
-    shapesInfo: ShapesInfo = ShapesInfo.default
+    vertexId: Long
     ) extends Value {
     override def toString = s"$date@$vertexId"
   }
@@ -116,8 +283,7 @@ object Helpers {
     vertexId: Long,
     label: String,     
     qualifiers: List[Qualifier] = List(), 
-    siteIri: String = siteDefault,
-    shapesInfo: ShapesInfo = ShapesInfo.default
+    siteIri: String = siteDefault
     ) extends Value {
     def iri: IRI = IRI(siteIri + "/" + id)
 
@@ -130,6 +296,10 @@ object Helpers {
 
     override def toString = s"$id - $label@$vertexId${if (qualifiers.isEmpty) "" else s"{{" + qualifiers.map(_.toString).mkString(",") + "}}" }" 
 
+  } 
+
+  object Property {
+    implicit val orderingById: Ordering[Property] = Ordering.by(_.id)
   }
 
   def vertexEdges(triplets: (Entity, Property, Value, List[Qualifier])*):(Seq[Value], Seq[Edge[Property]]) = {
