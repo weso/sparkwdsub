@@ -14,6 +14,7 @@ lazy val munitVersion          = "0.7.27"
 lazy val munitEffectVersion    = "1.0.5"
 lazy val sparkVersion          = "3.1.2"
 lazy val jacksonVersion        = "2.12.2"
+lazy val sparkFastTestsVersion = "1.0.0"
 
 // Other dependencies 
 lazy val wdsub             = "es.weso"                    %% "wdsub"               % wdsubVersion
@@ -24,7 +25,7 @@ lazy val munit             = "org.scalameta"              %% "munit"            
 lazy val munitEffect       = "org.typelevel"              %% "munit-cats-effect-3" % munitEffectVersion
 lazy val sparkSql          = "org.apache.spark"           %% "spark-sql"           % sparkVersion
 lazy val sparkGraphx       = "org.apache.spark"           %% "spark-graphx"        % sparkVersion
-
+lazy val sparkFast         = "com.github.mrpowers"        %% "spark-fast-tests"    % sparkFastTestsVersion
 
 
 lazy val MUnitFramework = new TestFramework("munit.Framework")
@@ -50,8 +51,10 @@ lazy val sparkWdsubRoot = project
   .settings(
     libraryDependencies ++= Seq(
       wdsub, 
-      sparkSql, sparkGraphx,
-      jackson
+      sparkSql, 
+      sparkGraphx, 
+      jackson,
+      sparkFast % Test
     ),
     fork := true,
     ThisBuild / turbo := true,

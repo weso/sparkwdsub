@@ -19,8 +19,7 @@ object GraphBuilder {
     gb: GraphBuilder[VD,ED], 
     sc: SparkContext): Graph[VD,ED] = {
     val (es,ss) = build(gb)
-    val entities: RDD[
-      (VertexId, VD)] = 
+    val entities: RDD[(VertexId, VD)] = 
         sc.parallelize(es.map(e => (e.vertexId, e.value)))
     val edges: RDD[Edge[ED]] = sc.parallelize(ss)
     Graph(entities, edges)    

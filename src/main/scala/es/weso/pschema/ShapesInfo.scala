@@ -16,7 +16,7 @@ case class ShapesInfo[L,E](
       this.copy(pendingShapes = this.pendingShapes ++ shapes)
 
     def addOkShape(shape: L) = 
-      if (inconsistencies.contains(shape))
+      if (inconsistencies.contains(shape)) 
        this.copy(pendingShapes = this.pendingShapes - shape)
       else if (noShapes.contains(shape)) 
        this.copy(pendingShapes = this.pendingShapes - shape, inconsistencies = this.inconsistencies + shape)
@@ -32,14 +32,27 @@ case class ShapesInfo[L,E](
       else       
         this.copy(pendingShapes = this.pendingShapes - shape, failedShapes = this.failedShapes + ((shape,err)))
 
-    def withoutPendingShapes(): ShapesInfo[L,E] = this.copy(pendingShapes = Set())    
+    def withoutPendingShapes(): ShapesInfo[L,E] = this.copy(pendingShapes = Set())   
+    
+    private def showSet(name: String, s: Set[L]): String =
+      s"$name:{${s.map(_.toString).mkString(",")}}"
   
-    private def showPendingShapes(): String = s"Pending:${if (pendingShapes.isEmpty) "{}" else pendingShapes.mkString(",")}"
-    private def showOKShapes(): String = if (okShapes.isEmpty) "" else okShapes.mkString(",")
-    private def showNoShapes(): String = if (noShapes.isEmpty) "" else noShapes.map(_.toString).mkString(",")
+    private def showPendingShapes(): String = 
+      showSet("Pending", pendingShapes)
+    private def showOKShapes(): String = 
+      showSet(", OK", okShapes)
+    private def showNoShapes(): String = 
+      showSet(", NO", noShapes)
 
-    override def toString = showPendingShapes() + showOKShapes() + showNoShapes()
+    override def toString = s"${showPendingShapes()}, ${showOKShapes()}, ${showNoShapes()}"
   
+
+    def visited(l: L): Boolean = {
+      inconsistencies.contains(l) ||
+      okShapes.contains(l) ||
+      noShapes.contains(l) 
+    }
+
   }
 
   object ShapesInfo {

@@ -27,7 +27,9 @@ import es.weso.pschema.Vertex
 
 object Helpers {
 
-  case class ShapeLabel(name: String) extends Serializable
+  case class ShapeLabel(name: String) extends Serializable {
+    override def toString: String = name
+  }
 
   val siteDefault = "http://www.wikidata.org/entity"
 
@@ -45,41 +47,39 @@ object Helpers {
 
   type PropertyId = String 
 
-/*  case class Msg(
-      validate: Set[ShapeLabel] = Set(), 
-      outgoing: Set[PropertyId] = Set()) extends Serializable {
-
-      def merge(other: Msg): Msg = {
-        Msg(
-          validate = this.validate.union(other.validate),
-          outgoing = this.outgoing.union(other.outgoing)
-        )
-      }
-
-      override def toString = s"Msg = ${
-        if (validate.isEmpty) "" else "Validate: " + validate.map(_.toString).mkString(",")
-      }${
-        if (outgoing.isEmpty) "" else "Arcs: " + outgoing.map(_.toString).mkString(",")
-      }"
-    } 
-
-  object Msg {
-      def validate(shapes: Set[ShapeLabel]): Msg = Msg(validate = shapes, Set())
-      def outgoing(arcs: Set[PropertyId]): Msg = Msg(Set(),arcs)
-  }
-*/
-
   case class Schema(map: Map[ShapeLabel, ShapeExpr]) extends Serializable {
 
     def get(shapeLabel: ShapeLabel): Option[ShapeExpr] = 
       map.get(shapeLabel)
 
-    def getTripleConstraints(shapeLabel: ShapeLabel): List[TripleConstraint] = {
+/*    def getTripleConstraints(shapeLabel: ShapeLabel): List[TripleConstraint] = {
       get(shapeLabel) match {
         case None => List()
         case Some(se) => se.tripleConstraints
       }
-    }  
+    } */  
+
+    def checkLocal(label: ShapeLabel, value: Value): Either[Reason, Set[ShapeLabel]] = {
+      get(label) match {
+        case None => Left(ShapeNotFound(label,this))
+        case Some(se) => se.checkLocal(value)
+      }
+    }
+
+    def checkNeighs(label: ShapeLabel, neighs: Bag[PropertyId]): Either[Reason, Unit] = {
+      get(label) match {
+        case None => Left(ShapeNotFound(label,this))
+        case Some(se) => se.checkNeighs(neighs)
+      }
+    }
+
+    def getTripleConstraints(label: ShapeLabel): List[(PropertyId, ShapeLabel)] = {
+      get(label) match {
+        case None => List()
+        case Some(se) => se.tripleConstraints.map(tc => (tc.property, tc.value.label))
+      }
+    }
+
 
   }
 
@@ -141,87 +141,6 @@ object Helpers {
   case object EmptyExpr extends TripleExpr 
   sealed abstract class NodeConstraint extends ShapeExpr 
   case class ValueSet(values: Set[String]) extends NodeConstraint
-
-/*  case class ShapedValue(
-    value: Value, 
-    shapesInfo: ShapesInfo = ShapesInfo.default,
-    outgoing: Option[Bag[PropertyId]] = None
-  ) extends Serializable {
-
-    def addPendingShapes(shapes: Set[ShapeLabel]): ShapedValue =
-      this.copy(shapesInfo = this.shapesInfo.addPendingShapes(shapes))
-    def addOKShape(shape: ShapeLabel): ShapedValue = 
-      this.copy(shapesInfo = this.shapesInfo.addOkShape(shape))
-    def addNoShape(shape: ShapeLabel, err: Reason): ShapedValue = 
-      this.copy(shapesInfo = this.shapesInfo.addNoShape(shape, err))
-
-    def withOutgoing(bag: Bag[PropertyId]) = this.copy(outgoing = Some(bag))  
-    def withoutPendingShapes = this.copy(shapesInfo = this.shapesInfo.withoutPendingShapes)
-
-    def validatePendingShapes(schema: Schema, shapes: Set[ShapeLabel]): ShapedValue = 
-      shapes.foldLeft(this){ case (v, shape) => v.validatePendingShape(schema, shape) }
-
-    def validatePendingShape(schema: Schema, shape: ShapeLabel): ShapedValue =
-      schema.get(shape) match {
-        case None => addNoShape(shape, ShapeNotFound(shape, schema))
-        case Some(ShapeRef(ref)) => validatePendingShape(schema, ref)
-        case Some(TripleConstraint(_,_,_,_)) => addPendingShapes(Set(shape))
-        case Some(EachOf(es)) => addPendingShapes(Set(shape))
-        case Some(EmptyExpr) => addOKShape(shape)
-        case Some(ValueSet(vs)) => this.value match {
-          case e: Entity => if (vs contains e.id) addOKShape(shape)
-            else addNoShape(shape,NoValueValueSet(this.value, vs))
-          case _ => addNoShape(shape,NoValueValueSet(this.value, vs))
-        }
-      }
-
-  }
-*/
-
-/*  case class ShapesInfo(
-    pendingShapes: Set[ShapeLabel] = Set(), 
-    okShapes: Set[ShapeLabel] = Set(), 
-    noShapes: Set[ShapeLabel] = Set(),
-    inconsistencies: Set[ShapeLabel] = Set()
-    ) {
-
-    def replaceShapeBy(shape1: ShapeLabel, shape2: ShapeLabel) = 
-      this.copy(pendingShapes = (this.pendingShapes - (shape1) + (shape2)))
-
-    def addPendingShapes(shapes: Set[ShapeLabel]): ShapesInfo =
-      this.copy(pendingShapes = this.pendingShapes ++ shapes)
-
-    def addOkShape(shape: ShapeLabel) = 
-      if (inconsistencies.contains(shape))
-       this.copy(pendingShapes = this.pendingShapes - shape)
-      else if (noShapes.contains(shape)) 
-       this.copy(pendingShapes = this.pendingShapes - shape, inconsistencies = this.inconsistencies + shape)
-      else 
-        this.copy(pendingShapes = this.pendingShapes - shape, okShapes = this.okShapes + shape)
-    
-    def addNoShape(shape: ShapeLabel, reason: Reason) = 
-      // TOOD: Do something with reason...
-      if (inconsistencies.contains(shape)) 
-        this.copy(pendingShapes = this.pendingShapes - shape)
-      else if (okShapes.contains(shape)) 
-        this.copy(pendingShapes = this.pendingShapes - shape, inconsistencies = this.inconsistencies + shape)
-      else       
-        this.copy(pendingShapes = this.pendingShapes - shape, noShapes = this.noShapes + shape)
- 
-        
-    def withoutPendingShapes() = this.copy(pendingShapes = Set()) 
-
-    private def showPendingShapes(): String = s"Pending:${if (pendingShapes.isEmpty) "{}" else pendingShapes.map(_.name).mkString(",")}"
-    private def showOKShapes(): String = if (okShapes.isEmpty) "" else okShapes.map(_.name).mkString(",")
-    private def showNoShapes(): String = if (noShapes.isEmpty) "" else noShapes.map(_.name).mkString(",")
-
-    override def toString = showPendingShapes() + showOKShapes() + showNoShapes()
-  
-  }
-
-  object ShapesInfo {
-    lazy val default: ShapesInfo = ShapesInfo(Set(),Set(),Set())
-  } */
 
   case class Entity(
     id: String, 
