@@ -21,43 +21,6 @@ import es.weso.shex
 
 object Helpers {
 
-  case class ShapedValue(
-    value: Value, 
-    shapesInfo: ShapesInfo = ShapesInfo()
-  ) extends Serializable {
-
-    def addPendingShapes(shapes: Set[ShapeLabel]): ShapedValue =
-      this.copy(shapesInfo = this.shapesInfo.addPendingShapes(shapes))
-    def addOKShape(shape: ShapeLabel): ShapedValue = 
-      this.copy(shapesInfo = this.shapesInfo.addOkShape(shape))
-    def addNoShape(shape: ShapeLabel, reason: Reason): ShapedValue = 
-      this.copy(shapesInfo = this.shapesInfo.addNoShape(shape, reason))
-
-    def validatePendingShapes(schema: Schema, shapes: Set[ShapeLabel]): ShapedValue = 
-      shapes.foldLeft(this){ case (v, shape) => v.validatePendingShape(schema, shape) }
-
-    def validatePendingShape(schema: Schema, shape: ShapeLabel): ShapedValue =
-      schema.get(shape) match {
-        case None => addNoShape(shape, ShapeNotFound(shape, schema))
-        case Some(ShapeRef(ref)) => validatePendingShape(schema, ref)
-        case Some(TripleConstraint(_,_,_,_)) => addPendingShapes(Set(shape))
-        case Some(EachOf(es)) => addPendingShapes(Set(shape))
-        case Some(EmptyExpr) => addOKShape(shape)
-        case Some(ValueSet(vs)) => this.value match {
-          case e: Entity => 
-            if (vs contains e.id) addOKShape(shape)
-            else addNoShape(shape,NoValueValueSet(e, vs))
-          case _ => addNoShape(shape,NoValueValueSet(this.value, vs))  
-        }
-      }
-
-  }
-
-  object ShapedValue {
-
-
-  }
-
   case class ShapeLabel(name: String) extends Serializable
 
   val siteDefault = "http://www.wikidata.org/entity"
@@ -166,47 +129,42 @@ object Helpers {
   sealed abstract class NodeConstraint extends ShapeExpr 
   case class ValueSet(values: Set[String]) extends NodeConstraint
 
-/*  sealed abstract class ShapeExpr extends Product with Serializable {
-    val rbe: Rbe[PropertyId] = Empty
-    val dependsOn: Set[ShapeLabel] = Set()
-    val tripleConstraints: List[TripleConstraint] = List()
+  case class ShapedValue(
+    value: Value, 
+    shapesInfo: ShapesInfo = ShapesInfo.default,
+    outgoing: Option[Bag[PropertyId]] = None
+  ) extends Serializable {
 
+    def addPendingShapes(shapes: Set[ShapeLabel]): ShapedValue =
+      this.copy(shapesInfo = this.shapesInfo.addPendingShapes(shapes))
+    def addOKShape(shape: ShapeLabel): ShapedValue = 
+      this.copy(shapesInfo = this.shapesInfo.addOkShape(shape))
+    def addNoShape(shape: ShapeLabel, err: Reason): ShapedValue = 
+      this.copy(shapesInfo = this.shapesInfo.addNoShape(shape, err))
 
-    def checkNeighs(bag: Bag[PropertyId]): Either[Reason, Unit] =
-       checker.check(bag,true) match {
-         case Left(es) => Left(NoMatch(bag,rbe,es))
-         case Right(_) => Right(())
-       }
+    def withOutgoing(bag: Bag[PropertyId]) = this.copy(outgoing = Some(bag))  
+    def withoutPendingShapes = this.copy(shapesInfo = this.shapesInfo.withoutPendingShapes)
+
+    def validatePendingShapes(schema: Schema, shapes: Set[ShapeLabel]): ShapedValue = 
+      shapes.foldLeft(this){ case (v, shape) => v.validatePendingShape(schema, shape) }
+
+    def validatePendingShape(schema: Schema, shape: ShapeLabel): ShapedValue =
+      schema.get(shape) match {
+        case None => addNoShape(shape, ShapeNotFound(shape, schema))
+        case Some(ShapeRef(ref)) => validatePendingShape(schema, ref)
+        case Some(TripleConstraint(_,_,_,_)) => addPendingShapes(Set(shape))
+        case Some(EachOf(es)) => addPendingShapes(Set(shape))
+        case Some(EmptyExpr) => addOKShape(shape)
+        case Some(ValueSet(vs)) => this.value match {
+          case e: Entity => 
+            if (vs contains e.id) addOKShape(shape)
+            else addNoShape(shape,NoValueValueSet(e, vs))
+          case _ => addNoShape(shape,NoValueValueSet(this.value, vs))  
+        }
+      }
+
   }
-  
-  case class ShapeRef(label: ShapeLabel) extends ShapeExpr {
-    override val rbe = Empty
-    override val dependsOn: Set[ShapeLabel] = Set(label)
-    override val tripleConstraints: List[TripleConstraint] = List()
-  }
-  sealed abstract class TripleExpr extends ShapeExpr with Product with Serializable
 
-  case class TripleConstraint(property: String, value: ShapeRef, min: Int, max: IntOrUnbounded) extends ShapeExpr {
-    override val rbe = Symbol(property, min, max)
-    override val dependsOn = value.dependsOn
-    override val tripleConstraints: List[TripleConstraint] = List(this)
-  }
-
-*/
-  val schemaResearcher = Schema(
-    Map(
-      ShapeLabel("Start") -> ShapeRef(ShapeLabel("Researcher")),
-      ShapeLabel("Researcher") -> EachOf(List(
-        TripleConstraint("P31", ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
-        TripleConstraint("P19", ShapeRef(ShapeLabel("Place")),1,IntLimit(1))
-      )),
-      ShapeLabel("Place") -> EachOf(List(
-        TripleConstraint("P17", ShapeRef(ShapeLabel("Country")),1,IntLimit(1))
-      )),
-      ShapeLabel("Country") -> EmptyExpr,
-      ShapeLabel("Human") -> ValueSet(Set("Q5")) 
-    )
-  )
 
   case class ShapesInfo(
     pendingShapes: Set[ShapeLabel] = Set(), 
@@ -237,7 +195,10 @@ object Helpers {
         this.copy(pendingShapes = this.pendingShapes - shape, inconsistencies = this.inconsistencies + shape)
       else       
         this.copy(pendingShapes = this.pendingShapes - shape, noShapes = this.noShapes + shape)
-  
+ 
+        
+    def withoutPendingShapes() = this.copy(pendingShapes = Set()) 
+       
     private def showPendingShapes(): String = s"Pending:${if (pendingShapes.isEmpty) "{}" else pendingShapes.map(_.name).mkString(",")}"
     private def showOKShapes(): String = if (okShapes.isEmpty) "" else okShapes.map(_.name).mkString(",")
     private def showNoShapes(): String = if (noShapes.isEmpty) "" else noShapes.map(_.name).mkString(",")
