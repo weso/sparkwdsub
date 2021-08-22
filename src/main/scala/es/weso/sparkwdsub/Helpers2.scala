@@ -14,23 +14,24 @@ import cats.implicits._
 import org.apache.spark.graphx.Edge
 import es.weso.rbe.interval.IntOrUnbounded
 import es.weso.rbe.interval.IntLimit
-import es.weso.rbe.{Graph => _, _}
+import es.weso.rbe._
 import es.weso.rbe.interval.IntervalChecker
 import es.weso.collection.Bag
 import es.weso.shex
-import org.apache.spark.rdd._
-import org.apache.spark.graphx._
-import org.apache.spark.SparkContext
-import scala.reflect.ClassTag
-import es.weso.pschema.GraphBuilder._
-import es.weso.pschema.Vertex
 
-object Helpers {
+object Helpers2 {
 
   case class ShapeLabel(name: String) extends Serializable
 
   val siteDefault = "http://www.wikidata.org/entity"
 
+  def build[A](builder: Builder[A]): A = builder.run(0L).map(_._2).value
+
+  type Builder[A] = State[Long,A]
+  def getIdUpdate: Builder[Long] = for {
+    id <- State.get
+    _ <- State.set(id + 1)
+  } yield id
 
   sealed abstract class Value extends Product with Serializable {
     val vertexId: Long
@@ -45,7 +46,7 @@ object Helpers {
 
   type PropertyId = String 
 
-/*  case class Msg(
+  case class Msg(
       validate: Set[ShapeLabel] = Set(), 
       outgoing: Set[PropertyId] = Set()) extends Serializable {
 
@@ -67,7 +68,7 @@ object Helpers {
       def validate(shapes: Set[ShapeLabel]): Msg = Msg(validate = shapes, Set())
       def outgoing(arcs: Set[PropertyId]): Msg = Msg(Set(),arcs)
   }
-*/
+
 
   case class Schema(map: Map[ShapeLabel, ShapeExpr]) extends Serializable {
 
@@ -118,20 +119,6 @@ object Helpers {
          case Left(es) => Left(NoMatch(bag,rbe,es))
          case Right(_) => Right(())
        } 
-
-    def checkLocal(value: Value): Either[Reason, Set[ShapeLabel]] =
-     this match {
-      case ShapeRef(label) => Right(Set(label))
-      case EmptyExpr => Right(Set())
-      case TripleConstraint(_,_,_,_) => Right(Set())
-      case EachOf(_) => Right(Set())
-      case ValueSet(vs) => value match {
-        case e: Entity => if (vs.contains(e.id)) Right(Set())
-        else Left(NoValueValueSet(value,vs))
-        case _ => Left(NoValueValueSet(value,vs))
-      }
-     }
-   
   }
 
   case class ShapeRef(label: ShapeLabel) extends ShapeExpr 
@@ -142,7 +129,7 @@ object Helpers {
   sealed abstract class NodeConstraint extends ShapeExpr 
   case class ValueSet(values: Set[String]) extends NodeConstraint
 
-/*  case class ShapedValue(
+  case class ShapedValue(
     value: Value, 
     shapesInfo: ShapesInfo = ShapesInfo.default,
     outgoing: Option[Bag[PropertyId]] = None
@@ -169,16 +156,17 @@ object Helpers {
         case Some(EachOf(es)) => addPendingShapes(Set(shape))
         case Some(EmptyExpr) => addOKShape(shape)
         case Some(ValueSet(vs)) => this.value match {
-          case e: Entity => if (vs contains e.id) addOKShape(shape)
-            else addNoShape(shape,NoValueValueSet(this.value, vs))
-          case _ => addNoShape(shape,NoValueValueSet(this.value, vs))
+          case e: Entity => 
+            if (vs contains e.id) addOKShape(shape)
+            else addNoShape(shape,NoValueValueSet(e, vs))
+          case _ => addNoShape(shape,NoValueValueSet(this.value, vs))  
         }
       }
 
   }
-*/
 
-/*  case class ShapesInfo(
+
+  case class ShapesInfo(
     pendingShapes: Set[ShapeLabel] = Set(), 
     okShapes: Set[ShapeLabel] = Set(), 
     noShapes: Set[ShapeLabel] = Set(),
@@ -210,7 +198,7 @@ object Helpers {
  
         
     def withoutPendingShapes() = this.copy(pendingShapes = Set()) 
-
+       
     private def showPendingShapes(): String = s"Pending:${if (pendingShapes.isEmpty) "{}" else pendingShapes.map(_.name).mkString(",")}"
     private def showOKShapes(): String = if (okShapes.isEmpty) "" else okShapes.map(_.name).mkString(",")
     private def showNoShapes(): String = if (noShapes.isEmpty) "" else noShapes.map(_.name).mkString(",")
@@ -221,7 +209,7 @@ object Helpers {
 
   object ShapesInfo {
     lazy val default: ShapesInfo = ShapesInfo(Set(),Set(),Set())
-  } */
+  }
 
   case class Entity(
     id: String, 
@@ -275,19 +263,18 @@ object Helpers {
     implicit val orderingById: Ordering[Property] = Ordering.by(_.id)
   }
 
-  def vertexEdges(triplets: (Entity, Property, Value, List[Qualifier])*):(Seq[Vertex[Value]], Seq[Edge[Property]]) = {
+  def vertexEdges(triplets: (Entity, Property, Value, List[Qualifier])*):(Seq[Value], Seq[Edge[Property]]) = {
     val subjects: Seq[Value] = triplets.map(_._1)
     val objects: Seq[Value] = triplets.map(_._3)
     val properties: Seq[Value] = triplets.map(_._2)
     val qualProperties: Seq[Value] = triplets.map(_._4.map(_.property)).flatten
     val qualValues: Seq[Value] = triplets.map(_._4.map(_.value)).flatten
-    val values: Seq[Vertex[Value]] = subjects.union(objects).union(properties).union(qualProperties).union(qualValues).map(v => Vertex(v.vertexId,v))
+    val values: Seq[Value] = subjects.union(objects).union(properties).union(qualProperties).union(qualValues)
     val edges = triplets.map(t => statement(t._1, t._2, t._3, t._4)).toSeq
     (values,edges)
   }
 
-
-  def Q(num: Int, label: String, site: String = siteDefault): Builder[Entity] =  for {
+    def Q(num: Int, label: String, site: String = siteDefault): Builder[Entity] =  for {
       id <- getIdUpdate
     } yield Entity("Q" + num, id, label)
 
@@ -305,6 +292,28 @@ object Helpers {
     def statement(subject: Entity, property: Property, value: Value, qs: List[Qualifier]): Edge[Property] = 
       Edge(subject.vertexId, value.vertexId, property.withQualifiers(qs.toList))
 
+/*    def mkEntityValue(e: Entity): Value = {
+      e.entityDocument.getEntityId()
+    }
+*/   
 
+    type PassedShapes = Set[ShapeLabel]
+    type PendingShapes = Set[ShapeLabel]
+    sealed abstract class CheckingStatus
+    case class Matching(pending: PendingShapes)
+    case class NoMatching()
+
+    /*
+      <Researcher> {
+        p31 [ Q5 ] ;
+        p166 @<Award> * ;
+        p19 @<Place> ;
+      }
+      <Place> {
+        P18 @<Country>
+      }
+      <Country> { } 
+     */ 
+    def validateResearcher(entity: Entity): CheckingStatus = ???
     
 }

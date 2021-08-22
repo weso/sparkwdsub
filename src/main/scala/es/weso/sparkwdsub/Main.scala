@@ -8,10 +8,12 @@ import Helpers._
 import es.weso.rdf.nodes._
 import scala.jdk.CollectionConverters._
 import es.weso.collection.Bag
+import es.weso.pschema.GraphBuilder._
+import es.weso.pschema._
 
 object SimpleApp {
 
-  def runShEx(schema: Schema, graph: Graph[Value, Property], maxIterations: Int = Int.MaxValue): Graph[ShapedValue,Property] = {
+  /* def runShEx(schema: Schema, graph: Graph[Value, Property], maxIterations: Int = Int.MaxValue): Graph[ShapedValue,Property] = {
 
     val shapedGraph: Graph[ShapedValue,Property] = 
       graph.mapVertices{ case (vid,value) => ShapedValue(value)}
@@ -86,7 +88,7 @@ object SimpleApp {
         mergeMsg)
 
     validated    
-  }
+  } */
 
   def main(args: Array[String]) {
 
@@ -95,60 +97,40 @@ object SimpleApp {
     val sc = new SparkContext(conf)
     sc.setLogLevel("ERROR")
 
-    val builder: Builder[(Seq[Value], Seq[Edge[Property]])] = for {
-      human <- Q(5, "Human")
-      dAdams <- Q(42, "Douglas Adams")
-      timBl <- Q(80, "Tim Beners-Lee")
-      instanceOf <- P(31, "instanceOf")
-      cern <- Q(42944, "CERN")
-      uk <- Q(145, "UK")
-      paAward <- Q(3320352, "Princess of Asturias Award") 
-      spain <- Q(29, "Spain")
-      country <- P(17,"country")
-      employer <- P(108,"employer")
-      birthPlace <- P(19, "place of birth")
-      london <- Q(84, "London")
-      awardReceived <- P(166, "award received")
-      togetherWith <- P(1706, "together with")
-      y1980 <- Date("1980")
-      y1984 <- Date("1984")
-      y1994 <- Date("1994")
-      y2002 <- Date("2002")
-      y2013 <- Date("2013")
-      vintCerf <- Q(92743, "Vinton Cerf")
-      start <- P(580, "start time")
-      end <- P(582, "end time")
-      time <- P(585, "point in time")
-    } yield {
-      vertexEdges(
-        (timBl, instanceOf, human, List()),
-        (timBl, birthPlace, london, List()),
-        (timBl, employer, cern, List(Qualifier(start, y1980), Qualifier(end, y1980))),
-        (timBl, employer, cern, List(Qualifier(start, y1984), Qualifier(end, y1994))),
-        (timBl, awardReceived, paAward, List(Qualifier(togetherWith, vintCerf), Qualifier(time, y2002))),
-        (dAdams, instanceOf, human, List()), 
-        (paAward, country, spain, List()),
-        (vintCerf,instanceOf, human, List()),
-        (vintCerf, awardReceived, paAward, List(Qualifier(togetherWith, timBl), Qualifier(time, y2002))),
-        (cern, awardReceived, paAward, List(Qualifier(time,y2013)))
-      )
-    }
+    val graph = buildGraph(SampleSchemas.simpleGraph1,sc)
+    val schema: Schema = SampleSchemas.schemaSimple
 
-    val (es,ss) = build(builder)
-
-    val entities: RDD[(VertexId, Value)] = 
-      sc.parallelize(es.map(e => (e.vertexId, e)))
-    
-    // Create an RDD for edges
-    val edges: RDD[Edge[Property]] =
-      sc.parallelize(ss)
-
-    val graph = Graph(entities, edges)    
     println(s"Graph triplets: ${graph.triplets.count()}")
     graph.triplets.collect().foreach(println(_))
 
+    val initialLabel = ShapeLabel("Start")
+    def checkLocal(schema:Schema)(label: ShapeLabel, value: Value): Either[Reason, Set[ShapeLabel]] = {
+      schema.get(label) match {
+        case None => Left(ShapeNotFound(label,schema))
+        case Some(se) => se.checkLocal(value)
+      }
+    }
 
-    val validatedGraph = runShEx(SampleSchemas.schemaSimple, graph,2)
+    def checkNeighs(schema: Schema)(label: ShapeLabel, neighs: Bag[PropertyId]): Either[Reason, Unit] = {
+      schema.get(label) match {
+        case None => Left(ShapeNotFound(label,schema))
+        case Some(se) => se.checkNeighs(neighs)
+      }
+    }
+
+    def getTripleConstraints(schema: Schema)(label: ShapeLabel): List[(PropertyId, ShapeLabel)] = {
+      schema.get(label) match {
+        case None => List()
+        case Some(se) => se.tripleConstraints.map(tc => (tc.property, tc.value.label))
+      }
+    }
+
+    def cnvProperty(p: Property): PropertyId = p.id
+
+    val validatedGraph: Graph[ShapedValue[Value,ShapeLabel,Reason,PropertyId], Property] = 
+      PSchema[Value,Property,ShapeLabel,Reason, PropertyId](graph, initialLabel, 5)(checkLocal(schema),checkNeighs(schema),getTripleConstraints(schema),cnvProperty)
+
+      // runShEx(SampleSchemas.schemaSimple, graph,2)
     println(s"Validated graph: ${validatedGraph.triplets.count()} triples")
     validatedGraph.vertices.collect().foreach(println(_))
     

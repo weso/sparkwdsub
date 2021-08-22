@@ -8,15 +8,27 @@ import cats._
 import cats.implicits._
 import scala.reflect.ClassTag
 
+/**
+ * Pregel Schema validation
+ * 
+ * Converts a Graph[VD,ED] into a Graph[ShapedValue[VD, L, E, P], ED]
+ * 
+ * where 
+ * L = labels in Schema
+ * E = type of errors
+ * P = type of property identifiers
+ **/ 
 object PSchema {
 
-  case class Schema[VD: ClassTag, ED: ClassTag, L, E, P: Ordering](
-    checkLocal: (L, VD) => Either[E, Set[L]], 
-    checkNeighs: (L, Bag[P]) => Either[E, Unit],
-    getTripleConstraints: L => List[(P,L)], 
-    cnvProperty: ED => P,  
-    initialLabel: L, 
-    ) {
+  def apply[VD: ClassTag, ED: ClassTag, L, E, P: Ordering](
+    graph: Graph[VD,ED],
+    initialLabel: L,
+    maxIterations: Int = Int.MaxValue) 
+    (checkLocal: (L, VD) => Either[E, Set[L]], 
+     checkNeighs: (L, Bag[P]) => Either[E, Unit],
+     getTripleConstraints: L => List[(P,L)], 
+     cnvProperty: ED => P  
+    ): Graph[ShapedValue[VD,L,E,P],ED] = {
 
     def vprog(id: VertexId, v: ShapedValue[VD, L, E, P], msg: Msg[L,P]): ShapedValue[VD, L, E, P] = {
 
@@ -76,25 +88,14 @@ object PSchema {
        
     def mergeMsg(p1: Msg[L,P], p2: Msg[L,P]): Msg[L,P] = p1.merge(p2) 
 
-    def run(graph: Graph[VD,ED], maxIterations: Int = Int.MaxValue): Graph[ShapedValue[VD,L, E,P], ED] = {
-
-      def shapedGraph: Graph[ShapedValue[VD, L, E, P], ED] = 
+    val shapedGraph: Graph[ShapedValue[VD, L, E, P], ED] = 
         graph.mapVertices{ case (vid,v) => ShapedValue[VD,L,E,P](v, ShapesInfo.default) }
 
-      val initialMsg: Msg[L,P] = 
+    val initialMsg: Msg[L,P] = 
         Msg[L,P](validate = Set(initialLabel))
 
-      val validated = 
-        Pregel(shapedGraph,initialMsg,maxIterations)(vprog,sendMsg, mergeMsg)
-
-      validated   
-    }
-
-
+    // Invoke pregel algorithm from SparkX    
+    Pregel(shapedGraph,initialMsg,maxIterations)(vprog,sendMsg, mergeMsg)
   }
 
-
-
-
-   
 }
