@@ -45,24 +45,17 @@ object Helpers {
   case class NoMatch(bag: Bag[PropertyId], rbe: Rbe[PropertyId], errors: NonEmptyList[RbeError]) extends Reason
   case class NoValueValueSet(value: Value, valueSet: Set[String]) extends Reason
 
-  type PropertyId = String 
+  type PropertyId = String
 
   case class Schema(map: Map[ShapeLabel, ShapeExpr]) extends Serializable {
 
     def get(shapeLabel: ShapeLabel): Option[ShapeExpr] = 
       map.get(shapeLabel)
 
-/*    def getTripleConstraints(shapeLabel: ShapeLabel): List[TripleConstraint] = {
-      get(shapeLabel) match {
-        case None => List()
-        case Some(se) => se.tripleConstraints
-      }
-    } */  
-
     def checkLocal(label: ShapeLabel, value: Value): Either[Reason, Set[ShapeLabel]] = {
       get(label) match {
         case None => Left(ShapeNotFound(label,this))
-        case Some(se) => se.checkLocal(value)
+        case Some(se) => se.checkLocal(value, label)
       }
     }
 
@@ -119,12 +112,13 @@ object Helpers {
          case Right(_) => Right(())
        } 
 
-    def checkLocal(value: Value): Either[Reason, Set[ShapeLabel]] =
+    def checkLocal(value: Value, fromLabel: ShapeLabel): Either[Reason, Set[ShapeLabel]] =
      this match {
       case ShapeRef(label) => Right(Set(label))
       case EmptyExpr => Right(Set())
-      case TripleConstraint(_,_,_,_) => Right(Set())
-      case EachOf(_) => Right(Set())
+      case TripleConstraint(_,_,_,_) => Right(Set(fromLabel))
+      case EachOf(Nil) => Right(Set())
+      case EachOf(_) => Right(Set(fromLabel))
       case ValueSet(vs) => value match {
         case e: Entity => if (vs.contains(e.id)) Right(Set())
         else Left(NoValueValueSet(value,vs))

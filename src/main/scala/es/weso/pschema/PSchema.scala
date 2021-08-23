@@ -20,7 +20,51 @@ import scala.reflect.ClassTag
  **/ 
 object PSchema {
 
-  def apply[VD: ClassTag, ED: ClassTag, L, E, P: Ordering](
+/**
+   * Execute a Pregel-like iterative vertex-parallel abstraction following 
+   * a validationg schema.  
+   *
+   * On the first iteration all vertices receive the `initialMsg` and
+   * on subsequent iterations if a vertex does not receive a message
+   * then the vertex-program is not invoked.
+   *
+   * This function iterates until there are no remaining messages, or
+   * for `maxIterations` iterations.
+   *
+   * @tparam VD the vertex data type
+   * @tparam ED the edge data type
+   * @tparam L the type of labels in the schema
+   * @tparam E the type of errors that happen when validating
+   * @tparam P the type of properties (arcs in the graph)
+   *
+   * @param graph the input graph.
+   *
+   * @param initialLabel the start label
+   *
+   * @param maxIterations the maximum number of iterations to run for
+   *
+   * @param checkLocal the function that validates locally a 
+   * vertex against a label in the schema
+   * it returns either an error or if it validates, a set of pending labels
+   * If there is no pending labels, the set will be empty
+   *
+   * @param checkNeighs it checks the bag of neighbours of a node against 
+   * the regular bag expression defined by the label in the schema
+   * 
+   * @param getTripleConstraints returns the list of triple constraints
+   *  associated with a label in a schema. A triple constraint is a pair with 
+   * an arc and a pending label
+   * 
+   * @param cnvProperty a function that converts the type of edges to 
+   * the type of arcs employed in the schema
+   *
+   * @return the resulting graph at the end of the computation with the
+   * values embedded in a `ShapedValue` class that contains information 
+   * about ok shapes, failed shapes,
+   * inconsistent shapes and pending shapes.
+   *
+   */
+   def apply[VD: ClassTag, ED: ClassTag, L, E, P: Ordering](
     graph: Graph[VD,ED],
     initialLabel: L,
     maxIterations: Int = Int.MaxValue) 
@@ -30,34 +74,46 @@ object PSchema {
      cnvProperty: ED => P  
     ): Graph[ShapedValue[VD,L,E,P],ED] = {
 
-    def vprog(id: VertexId, v: ShapedValue[VD, L, E, P], msg: Msg[L,P]): ShapedValue[VD, L, E, P] = {
+    lazy val emptyBag: Bag[P] = Bag.empty  
+
+    def vprog(
+      id: VertexId, 
+      v: ShapedValue[VD, L, E, P], 
+      msg: Msg[L,P]
+      ): ShapedValue[VD, L, E, P] = {
 
        val pendingShapes = v.shapesInfo.pendingShapes 
-       var newPending = Set[L]()
 
        // Match outgoing bag of arcs with current pending shapes
-       val checkedValue = pendingShapes.foldLeft(v.withoutPendingShapes) {
+       val checkedValue = 
+        pendingShapes.foldLeft(v.withoutPendingShapes) {
          case (v, pending) => checkLocal(pending, v.value) match {
            case Left(err) => v.addNoShape(pending, err)
            case Right(ls) => {
-             val locallyChecked = v.addPendingShapes(Set(pending))
-
-             val neighsBag: Option[Bag[P]] = v.outgoing orElse msg.outgoing 
-
+             val neighsBag: Bag[P] = v.outgoing.getOrElse(msg.outgoing.getOrElse(emptyBag)) 
              // check neighs coming from msg
-             val neighsChecked = neighsBag match {
-               case None => locallyChecked
-               case Some(bag) => checkNeighs(pending, bag) match {
-                 case Left(err) => locallyChecked.addNoShape(pending,err)
-                 case Right(_) => locallyChecked.withOutgoing(bag).addOKShape(pending)
+             val neighsChecked = checkNeighs(pending, neighsBag) match {
+                 case Left(err) => v.addNoShape(pending,err)
+                 case Right(_) => v.withOutgoing(neighsBag).addOKShape(pending)
                }
-             }
              neighsChecked
+             }
            }
-         }
-       }
+        }
 
-       val newValue = checkedValue.addPendingShapes(msg.validate)
+      // Check requests to validate.
+      // If they can validate locally withoug pending labels, 
+      // they are not directly added to OK shapes  
+      val newValue = msg.validate.foldLeft(checkedValue) {
+        case (v,label) => checkLocal(label,v.value) match {
+          case Left(err) => v.addNoShape(label,err)
+          case Right(pending) => 
+            if (pending.isEmpty) v.addOKShape(label) 
+            else v.addPendingShapes(pending)
+        } 
+      }  
+
+//       val newValue = checkedValue.addPendingShapes(msg.validate)
        println(s"VProg: vertexId: $id - newValue: $newValue")
        newValue
     }

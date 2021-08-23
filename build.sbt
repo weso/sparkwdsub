@@ -78,3 +78,5 @@ lazy val dockerSettings = Seq(
   Docker / daemonUserUid := Some("0"),
   Docker / daemonUser    := "root"
 )
+
+resolvers += "Spark Packages Repo" at "https://repos.spark-packages.org/"

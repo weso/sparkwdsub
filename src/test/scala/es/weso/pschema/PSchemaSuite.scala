@@ -38,13 +38,16 @@ class PSchemaSuite extends FunSuite
         )
     val vertices: List[(Long,ShapedValue[Value,ShapeLabel,Reason,PropertyId])] = 
         validatedGraph.vertices.collect().toList
+    val result: List[(String, Set[String])] = 
+        vertices
+        .map{ case (_, sv) => (sv.value, sv.shapesInfo.okShapes.map(_.name))}
+        .collect { case (e: Entity, okShapes) => (e.id, okShapes)} 
+    val expected: List[(String,Set[String])] = List(
+        ("Q5", Set("Human")), 
+        ("Q80", Set("Start"))
+        )
     assertEquals(vertices.size,3)
-    println(s"Vertices ${vertices.map(_.toString).mkString("\n")}")
-    val maybeQ80 = vertices.map(_._2).collect { case sv => sv.value match { case e: Entity if e.id == "Q80" => sv }}.headOption
-     maybeQ80 match {
-         case None => fail(s"Not found value Q80")
-         case Some(sv) => assertEquals(sv.shapesInfo.okShapes.map(_.name), Set("Human")) 
-     }
+    assertEquals(result,expected)
   }
 
 }
