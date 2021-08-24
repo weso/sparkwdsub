@@ -71,16 +71,16 @@ object PSchema {
     (checkLocal: (L, VD) => Either[E, Set[L]], 
      checkNeighs: (L, Bag[P]) => Either[E, Unit],
      getTripleConstraints: L => List[(P,L)], 
-     cnvProperty: ED => P  
-    ): Graph[ShapedValue[VD,L,E,P],ED] = {
+     cnvEdge: ED => P  
+    ): Graph[Shaped[VD,L,E,P],ED] = {
 
     lazy val emptyBag: Bag[P] = Bag.empty  
 
     def vprog(
       id: VertexId, 
-      v: ShapedValue[VD, L, E, P], 
+      v: Shaped[VD, L, E, P], 
       msg: Msg[L,P]
-      ): ShapedValue[VD, L, E, P] = {
+      ): Shaped[VD, L, E, P] = {
 
        val pendingShapes = v.shapesInfo.pendingShapes 
 
@@ -118,7 +118,7 @@ object PSchema {
        newValue
     }
 
-    def sendMsg(t: EdgeTriplet[ShapedValue[VD, L, E, P],ED]): Iterator[(VertexId, Msg[L,P])] = {
+    def sendMsg(t: EdgeTriplet[Shaped[VD, L, E, P],ED]): Iterator[(VertexId, Msg[L,P])] = {
       val shapeLabels = t.srcAttr.shapesInfo.pendingShapes
       val ls = shapeLabels.map(sendMessagesPending(_, t)).toIterator.flatten
       ls
@@ -126,14 +126,14 @@ object PSchema {
 
     def sendMessagesPending(
       shapeLabel: L, 
-      triplet: EdgeTriplet[ShapedValue[VD,L,E,P],ED]): Iterator[(VertexId, Msg[L,P])] = {
+      triplet: EdgeTriplet[Shaped[VD,L,E,P],ED]): Iterator[(VertexId, Msg[L,P])] = {
 
-     val tcs = getTripleConstraints(shapeLabel).filter(_._1 == cnvProperty(triplet.attr))
-      println(s"sendMessagesPending(${triplet.srcAttr.value}-${cnvProperty(triplet.attr)}-${triplet.dstAttr.value}): ${tcs.map(_._2.toString).mkString(",")}")
+     val tcs = getTripleConstraints(shapeLabel).filter(_._1 == cnvEdge(triplet.attr))
+      println(s"sendMessagesPending(${triplet.srcAttr.value}-${cnvEdge(triplet.attr)}-${triplet.dstAttr.value}): ${tcs.map(_._2.toString).mkString(",")}")
       tcs.toIterator.map{ case (p,l) => sendMessagesTriplet(p, l, triplet) }.flatten
     } 
 
-    def sendMessagesTriplet(p: P, label: L, triplet: EdgeTriplet[ShapedValue[VD, L, E, P],ED]): Iterator[(VertexId,Msg[L,P])] = {
+    def sendMessagesTriplet(p: P, label: L, triplet: EdgeTriplet[Shaped[VD, L, E, P],ED]): Iterator[(VertexId,Msg[L,P])] = {
       val msg1 = (triplet.srcId, Msg.outgoing[L,P](Bag(p))) // message to subject with outgoing arc
       val msg2 = (triplet.dstId, Msg.validate(Set(label)))  // message to object with pending shape
       println(s"Msg1: $msg1")
@@ -144,8 +144,8 @@ object PSchema {
        
     def mergeMsg(p1: Msg[L,P], p2: Msg[L,P]): Msg[L,P] = p1.merge(p2) 
 
-    val shapedGraph: Graph[ShapedValue[VD, L, E, P], ED] = 
-        graph.mapVertices{ case (vid,v) => ShapedValue[VD,L,E,P](v, ShapesInfo.default) }
+    val shapedGraph: Graph[Shaped[VD, L, E, P], ED] = 
+        graph.mapVertices{ case (vid,v) => Shaped[VD,L,E,P](v, ShapesInfo.default) }
 
     val initialMsg: Msg[L,P] = 
         Msg[L,P](validate = Set(initialLabel))

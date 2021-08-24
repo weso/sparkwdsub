@@ -1,8 +1,9 @@
-package es.weso.sparkwdsub
+package es.weso.pschema
 
-import Helpers._
+import es.weso.simpleshex._
+import es.weso.simpleshex.Value._
 import es.weso.rbe.interval._
-import es.weso.pschema.GraphBuilder._
+import es.weso.graphxhelpers.GraphBuilder._
 
 object SampleSchemas {
 
@@ -32,9 +33,9 @@ object SampleSchemas {
       timBl <- Q(80, "Tim Beners-Lee")
       instanceOf <- P(31, "instanceOf")
     } yield {
-      vertexEdges(
-        (timBl, instanceOf, human, List()),
-      )
+      vertexEdges(List(
+        triple(timBl, instanceOf, human)
+      ))
     }
   
 
@@ -63,18 +64,18 @@ object SampleSchemas {
       end <- P(582, "end time")
       time <- P(585, "point in time")
     } yield {
-      vertexEdges(
-        (timBl, instanceOf, human, List()),
-        (timBl, birthPlace, london, List()),
-        (timBl, employer, cern, List(Qualifier(start, y1980), Qualifier(end, y1980))),
-        (timBl, employer, cern, List(Qualifier(start, y1984), Qualifier(end, y1994))),
-        (timBl, awardReceived, paAward, List(Qualifier(togetherWith, vintCerf), Qualifier(time, y2002))),
-        (dAdams, instanceOf, human, List()), 
-        (paAward, country, spain, List()),
-        (vintCerf,instanceOf, human, List()),
-        (vintCerf, awardReceived, paAward, List(Qualifier(togetherWith, timBl), Qualifier(time, y2002))),
-        (cern, awardReceived, paAward, List(Qualifier(time,y2013)))
-      )
+      vertexEdges(List(
+        triple(timBl, instanceOf, human),
+        triple(timBl, birthPlace, london),
+        tripleq(timBl, employer, cern, List(Qualifier(start, y1980), Qualifier(end, y1980))),
+        tripleq(timBl, employer, cern, List(Qualifier(start, y1984), Qualifier(end, y1994))),
+        tripleq(timBl, awardReceived, paAward, List(Qualifier(togetherWith, vintCerf), Qualifier(time, y2002))),
+        triple(dAdams, instanceOf, human), 
+        triple(paAward, country, spain),
+        triple(vintCerf,instanceOf, human),
+        tripleq(vintCerf, awardReceived, paAward, List(Qualifier(togetherWith, timBl), Qualifier(time, y2002))),
+        tripleq(cern, awardReceived, paAward, List(Qualifier(time,y2013)))
+      ))
     }
 
 

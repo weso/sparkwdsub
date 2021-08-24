@@ -3,7 +3,7 @@ package es.weso.pschema
 import es.weso.collection.Bag
 
 
-case class ShapedValue[VD,L,E,P](
+case class Shaped[VD,L,E,P](
     value: VD, 
     shapesInfo: ShapesInfo[L,E] = ShapesInfo.default,
     outgoing: Option[Bag[P]] = None
@@ -11,11 +11,11 @@ case class ShapedValue[VD,L,E,P](
 
     def pendingShapes = shapesInfo.pendingShapes
 
-    def addPendingShapes(shapes: Set[L]): ShapedValue[VD, L, E, P] =
+    def addPendingShapes(shapes: Set[L]): Shaped[VD, L, E, P] =
       this.copy(shapesInfo = this.shapesInfo.addPendingShapes(shapes))
-    def addOKShape(shape: L): ShapedValue[VD, L, E, P] = 
+    def addOKShape(shape: L): Shaped[VD, L, E, P] = 
       this.copy(shapesInfo = this.shapesInfo.addOkShape(shape))
-    def addNoShape(shape: L, err: E): ShapedValue[VD, L, E, P] = 
+    def addNoShape(shape: L, err: E): Shaped[VD, L, E, P] = 
       this.copy(shapesInfo = this.shapesInfo.addNoShape(shape, err))
 
     def withOutgoing(bag: Bag[P]) = this.copy(outgoing = Some(bag))  

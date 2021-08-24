@@ -1,4 +1,5 @@
-package es.weso.pschema
+package es.weso.graphxhelpers
+
 
 import org.apache.spark.graphx._
 import scala.reflect.ClassTag
@@ -7,9 +8,6 @@ import org.apache.spark.rdd.RDD
 import cats._
 import cats.data._ 
 import cats.implicits._
-
-case class Vertex[VD](vertexId: VertexId, value: VD)
-
 
 object GraphBuilder {
 
