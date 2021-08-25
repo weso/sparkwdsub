@@ -33,61 +33,49 @@ class PSchemaSuite extends FunSuite
   test("Simple graph") {
      val graph = buildGraph(SampleSchemas.simpleGraph1, spark.sparkContext)
      val schema = SampleSchemas.schemaSimple
-     val validatedGraph = PSchema[Value,Property,ShapeLabel,Reason, Value.PropertyId](
+     val validatedGraph = PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
         graph, ShapeLabel("Start"), 5)(
           schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
         )
-    val vertices: List[(Long,Shaped[Value,ShapeLabel,Reason,PropertyId])] = 
+    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
         validatedGraph.vertices.collect().toList
     val result: List[(String, Set[String])] = 
         vertices
         .map{ case (_, sv) => (sv.value, sv.shapesInfo.okShapes.map(_.name))}
-        .collect { case (e: Entity, okShapes) => (e.id, okShapes)} 
+        .collect { case (e: Entity, okShapes) => (e.entityId.id, okShapes)} 
     val expected: List[(String,Set[String])] = List(
         ("Q5", Set("Human")), 
         ("Q80", Set("Start"))
         )
-    assertEquals(vertices.size,3)
+    assertEquals(vertices.size,2)
     assertEquals(result,expected)
   }
 
-  test("Recursion basic") {
-   val gb = for {
-      alice <- Q(1, "alice")
-      bob <- Q(2, "bob")
-      carol <- Q(3,"carol")
+  test("Basic local statements") {
+   val gb: GraphBuilder[Entity,Statement] = for {
       name <- P(1, "name")
       knows <- P(2, "knows")
-      aliceName <- Str("Alice")
-      bobName <- Str("Robert")
-      carolName <- Str("Carole")
-      dave <- Q(4, "dave")
+      aliceBasic <- Q(1, "alice")
+      alice = aliceBasic.withLocalStatement(name.prec,Str("Alice"))
     } yield {
       vertexEdges(List(
-        triple(alice, knows, bob),
-        triple(alice, name, aliceName),
-        triple(alice, knows, alice),
-        triple(bob, name, bobName),
-        triple(bob, knows, carol),
-        triple(carol, name, carolName),
-        triple(dave, knows, dave)
+        triple(alice, knows.prec, alice),
       ))
     }  
    val graph = buildGraph(gb, spark.sparkContext)
    val schema = Schema(
       Map(
       ShapeLabel("Person") -> EachOf(List(
-        TripleConstraint("P1", ShapeRef(ShapeLabel("Str")),1,IntLimit(1)),
-        TripleConstraint("P2", ShapeRef(ShapeLabel("Person")),0,Unbounded)
-      )),
-      ShapeLabel("Str") -> StringDatatype
+        TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
+        TripleConstraintRef(Pid(2), ShapeRef(ShapeLabel("Person")),0,Unbounded)
+      ))
      ))
       
-     val validatedGraph = PSchema[Value,Property,ShapeLabel,Reason, PropertyId](
+     val validatedGraph = PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
         graph, ShapeLabel("Person"), 5)(
           schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
         )
-    val vertices: List[(Long,Shaped[Value,ShapeLabel,Reason,PropertyId])] = 
+    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
         validatedGraph.vertices.collect().toList
     val result: List[(String, Set[String], Set[String])] = 
         vertices
@@ -99,7 +87,60 @@ class PSchemaSuite extends FunSuite
             )}
         .collect { 
           case (e: Entity, okShapes, noShapes) => 
-            (e.id, okShapes, noShapes)
+            (e.entityId.id, okShapes, noShapes)
+          } 
+    val expected: List[(String,Set[String], Set[String])] = List(
+         ("Q1", Set("Person"),Set()) 
+        )
+    assertEquals(vertices.size,1)
+    assertEquals(result.sortWith(_._1 < _._1),expected)
+  }
+
+  test("Recursion basic") {
+   val gb: GraphBuilder[Entity,Statement] = for {
+      name <- P(1, "name")
+      aliceBasic <- Q(1, "alice")
+      alice = aliceBasic.withLocalStatement(name.prec,Str("Alice"))
+      bobBasic <- Q(2, "bob")
+      bob = bobBasic.withLocalStatement(name.prec, Str("Robert"))
+      carolBasic <- Q(3,"carol")
+      carol = carolBasic.withLocalStatement(name.prec, Str("Carole"))
+      knows <- P(2, "knows")
+      dave <- Q(4, "dave")
+    } yield {
+      vertexEdges(List(
+        triple(alice, knows.prec, bob),
+        triple(alice, knows.prec, alice),
+        triple(bob, knows.prec, carol),
+        triple(dave, knows.prec, dave)
+      ))
+    }  
+   val graph = buildGraph(gb, spark.sparkContext)
+   val schema = Schema(
+      Map(
+      ShapeLabel("Person") -> EachOf(List(
+        TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
+        TripleConstraintRef(Pid(2), ShapeRef(ShapeLabel("Person")),0,Unbounded)
+      ))
+     ))
+      
+     val validatedGraph = PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
+        graph, ShapeLabel("Person"), 5)(
+          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+        )
+    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
+        validatedGraph.vertices.collect().toList
+    val result: List[(String, Set[String], Set[String])] = 
+        vertices
+        .map{ 
+          case (_, sv) => 
+            (sv.value, 
+             sv.shapesInfo.okShapes.map(_.name),
+             sv.shapesInfo.noShapes.map(_.name)             
+            )}
+        .collect { 
+          case (e: Entity, okShapes, noShapes) => 
+            (e.entityId.id, okShapes, noShapes)
           } 
     val expected: List[(String,Set[String], Set[String])] = List(
         ("Q1", Set("Person"),Set()), 
@@ -107,7 +148,7 @@ class PSchemaSuite extends FunSuite
         ("Q3", Set("Person"), Set()),
         ("Q4", Set(), Set("Person"))
         )
-    assertEquals(vertices.size,9)
+    assertEquals(vertices.size,4)
     assertEquals(result.sortWith(_._1 < _._1),expected)
   }
 

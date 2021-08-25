@@ -18,6 +18,7 @@ import cats.effect.unsafe.implicits.global
 import org.wikidata.wdtk.datamodel.interfaces.{
   StringValue => WDStringValue, 
   Value => WDValue, 
+  Statement => WDStatement,
   _
 }
 
@@ -50,19 +51,19 @@ object SimpleApp {
     case _ => false
   }
 
-  def mkEntity(ed: EntityDocument): (Long, Value) = {
+  def mkEntity(ed: EntityDocument): (Long, Entity) = {
     val vertexId = mkVertexId(ed.getEntityId()) 
     ed match {
      case id: ItemDocument => { 
       val label = Option(id.findLabel("en")).getOrElse("")
       (vertexId, 
-       Entity(id.getEntityId().getId(), vertexId, label, id.getEntityId().getSiteIri())
+       Item(ItemId(id.getEntityId().getId()), vertexId, label, id.getEntityId().getSiteIri(), List())
       ) 
       }
      case pd: PropertyDocument => {
       val label = Option(pd.findLabel("en")).getOrElse("")
       (vertexId, 
-       Property(pd.getEntityId().getId(), vertexId, label,List(), pd.getEntityId().getSiteIri())
+       Property(PropertyId(pd.getEntityId().getId()), vertexId, label, pd.getEntityId().getSiteIri(), List())
       )
      }
     }
@@ -70,19 +71,19 @@ object SimpleApp {
 
   type PropertyId = Long
 
-  def mkProperties(ed: EntityDocument): Iterator[Edge[PropertyId]] = {
+  def mkProperties(ed: EntityDocument): Iterator[Edge[Statement]] = ??? /* {
     ed match {
      case sd: StatementDocument => { 
        sd.getAllStatements().asScala.map(s => {
          val subjectId = mkVertexId(s.getSubject())     
          val propertyId = mkVertexId(s.getMainSnak().getPropertyId())
          val valueId = mkVertexId(s.getValue())
-         Edge(subjectId, propertyId, valueId)
+         Edge(subjectId, property, valueId)
        }) 
      }
-     case _ => Iterator[Edge[PropertyId]]()
+     case _ => Iterator[Edge[Property]]()
     }
-  }   
+  }   */
 
 
   def main(args: Array[String]) {
@@ -104,7 +105,7 @@ object SimpleApp {
     lazy val site: String = "http://www.wikidata.org/entity/"
     lazy val jsonDeserializer = new helpers.JsonDeserializer(site)
 
-    val vertices: RDD[(Long,Value)] = 
+    val vertices: RDD[(Long,Entity)] = 
       sc.textFile("examples/dump.json")
       .filter(!brackets(_))
       .map(line => { 
@@ -113,15 +114,15 @@ object SimpleApp {
         mkEntity(entityDocument)
       })
 
-/*    val edges: RDD[(VertexId,Edge[Property])] = 
+    val edges: RDD[(VertexId,Edge[Property])] = 
       sc.textFile("examples/dump.json")
       .filter(!brackets(_))
       .map(line => { 
         val jsonDeserializer = new JsonDeserializer( "http://www.wikidata.org/entity/" )
         val entityDocument = jsonDeserializer.deserializeEntityDocument(line)
-        mkProperties(entityDocument)
+        ??? // mkProperties(entityDocument)
       })      
-*/
+
 
 /*    val edges: RDD[(VertexId,Entity)] = sc.textFile("examples/example1.edges").map(line => {
       val row = line.split(",")
