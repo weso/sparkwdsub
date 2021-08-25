@@ -8,11 +8,6 @@ sealed abstract class Value extends Product with Serializable {
     val vertexId: Long
 }
 
-
-// type PropertyId = String
-
-
-
 case class Entity(
     id: String, 
     vertexId: Long, 
@@ -109,7 +104,11 @@ object Value {
       id <- getIdUpdate
   } yield StringValue(str, id)
 
-  def statement(subject: Entity, property: Property, value: Value, qs: List[Qualifier]): Edge[Property] = 
+  def statement(
+    subject: Entity, 
+    property: Property, 
+    value: Value, 
+    qs: List[Qualifier]): Edge[Property] = 
       Edge(subject.vertexId, value.vertexId, property.withQualifiers(qs.toList))
 
   val siteDefault = "http://www.wikidata.org/entity"
