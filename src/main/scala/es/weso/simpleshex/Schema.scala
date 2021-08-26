@@ -14,7 +14,7 @@ case class Schema(map: Map[ShapeLabel, ShapeExpr]) extends Serializable {
       }
     }
 
-    def checkNeighs(label: ShapeLabel, neighs: Bag[PropertyId]): Either[Reason, Unit] = {
+    def checkNeighs(label: ShapeLabel, neighs: Bag[(PropertyId,ShapeLabel)]): Either[Reason, Unit] = {
       get(label) match {
         case None => Left(ShapeNotFound(label,this))
         case Some(se) => se.checkNeighs(neighs)

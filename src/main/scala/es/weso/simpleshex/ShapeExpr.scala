@@ -19,21 +19,22 @@ import cats.implicits._
       case EmptyExpr => Set() 
     }
 
-    def rbe: Rbe[PropertyId] = this match {
-      case _: ShapeRef => Empty 
-      case t: TripleConstraintRef => Symbol(t.property, t.min, t.max)
-      case t: TripleConstraintLocal => Empty
-      case eo: EachOf => {
-        val empty: Rbe[PropertyId] = Empty
+    def rbe: Rbe[(PropertyId,ShapeLabel)] = { 
+     lazy val empty: Rbe[(PropertyId,ShapeLabel)] = Empty 
+     this match {
+      case _: ShapeRef => empty
+      case t: TripleConstraintRef => Symbol((t.property, t.value.label), t.min, t.max)
+      case t: TripleConstraintLocal => empty
+      case eo: EachOf => 
         eo.exprs.foldLeft(empty){ case (e,b) => And(e,b.rbe)}
-      }
-      case oo: OneOf => {
-        val empty: Rbe[PropertyId] = Empty
+      case oo: OneOf => 
         oo.exprs.foldLeft(empty){ case (e,b) => Or(e,b.rbe)}
-      }
-      case _: NodeConstraint => Empty
-      case EmptyExpr => Empty
+      case _: NodeConstraint => empty
+      case EmptyExpr => empty
+     }
     }
+
+    implicit val showPair: Show[(PropertyId, ShapeLabel)] = Show.show(p => p.toString)
 
     private lazy val checker = IntervalChecker(rbe)
 
@@ -47,7 +48,7 @@ import cats.implicits._
       case _ => List()
     }
 
-    def checkNeighs(bag: Bag[PropertyId]): Either[Reason, Unit] =
+    def checkNeighs(bag: Bag[(PropertyId,ShapeLabel)]): Either[Reason, Unit] =
        checker.check(bag,true) match {
          case Left(es) => Left(NoMatch(bag,rbe,es))
          case Right(_) => Right(())
