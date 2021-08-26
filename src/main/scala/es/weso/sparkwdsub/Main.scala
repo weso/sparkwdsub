@@ -9,6 +9,7 @@ import scala.jdk.CollectionConverters._
 import es.weso.collection.Bag
 import es.weso.graphxhelpers.GraphBuilder._
 import es.weso.pschema._
+import es.weso.simpleshex.Value._
 import org.apache.spark.sql.DataFrameStatFunctions
 import es.weso.simpleshex._
 //import es.weso.wikibase._
@@ -21,6 +22,7 @@ import org.wikidata.wdtk.datamodel.interfaces.{
   Statement => WDStatement,
   _
 }
+import es.weso.rbe.interval.IntLimit
 
 object SimpleApp {
 
@@ -69,21 +71,29 @@ object SimpleApp {
     }
   }
 
-  type PropertyId = Long
+  def mkStatement(s: WDStatement): Option[Edge[Statement]] = 
+   s.getValue() match {
+    case null => None
+    case ev: EntityIdValue => {
+      val subjectId = mkVertexId(s.getSubject())     
+      val wdpid = s.getMainSnak().getPropertyId()
+      val pid = PropertyId(wdpid.getId())
+      val pVertex = mkVertexId(wdpid)
+      val valueId = mkVertexId(ev)
+      // TODO. Collect qualifiers
+      Some(Edge(subjectId, valueId, Statement(PropertyRecord(pid,pVertex))))
+    }
+    case _ => None
+   }
 
-  def mkProperties(ed: EntityDocument): Iterator[Edge[Statement]] = ??? /* {
+  def mkStatements(ed: EntityDocument): List[Edge[Statement]] = {
     ed match {
      case sd: StatementDocument => { 
-       sd.getAllStatements().asScala.map(s => {
-         val subjectId = mkVertexId(s.getSubject())     
-         val propertyId = mkVertexId(s.getMainSnak().getPropertyId())
-         val valueId = mkVertexId(s.getValue())
-         Edge(subjectId, property, valueId)
-       }) 
+       sd.getAllStatements().asScala.toList.map(mkStatement).flatten
      }
-     case _ => Iterator[Edge[Property]]()
+     case _ => List[Edge[Statement]]()
     }
-  }   */
+  }  
 
 
   def main(args: Array[String]) {
@@ -114,43 +124,33 @@ object SimpleApp {
         mkEntity(entityDocument)
       })
 
-    val edges: RDD[(VertexId,Edge[Property])] = 
+    val edges = 
       sc.textFile("examples/dump.json")
       .filter(!brackets(_))
       .map(line => { 
         val jsonDeserializer = new JsonDeserializer( "http://www.wikidata.org/entity/" )
         val entityDocument = jsonDeserializer.deserializeEntityDocument(line)
-        ??? // mkProperties(entityDocument)
-      })      
+        mkStatements(entityDocument)
+      }).flatMap(identity)
 
-
-/*    val edges: RDD[(VertexId,Entity)] = sc.textFile("examples/example1.edges").map(line => {
-      val row = line.split(",")
-      val src = row(0).toLong
-      val dst = row(1).toLong
-//      val prop = Property(row(2),row(3),row)
-      Edge(src, dst, prop)
-    })*/
 
     println(vertices.collect().map(_.toString()).mkString("\n"))
-//    val schema: Schema = SampleSchemas.schemaSimple
 
-//    println(s"Graph triplets: ${graph.triplets.count()}")
-//    graph.triplets.collect().foreach(println(_))
+    val graph = Graph(vertices,edges)
+    val initialLabel = ShapeLabel("Start")
+    val schema = Schema(Map(
+      ShapeLabel("Start") -> TripleConstraintRef(Pid(31), ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
+      ShapeLabel("Human") -> ValueSet(Set(ItemId("Q5"))) 
+    ))
 
-//    val initialLabel = ShapeLabel("Start")
-
-//    def cnvProperty(p: Property): PropertyId = p.id
-
-/*    val validatedGraph: Graph[ShapedValue[Value,ShapeLabel,Reason,PropertyId], Property] = 
-      PSchema[Value,Property,ShapeLabel,Reason, PropertyId](
+    val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] = 
+      PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
         graph, initialLabel, 5)(
           schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
         )
 
     println(s"Validated graph: ${validatedGraph.triplets.count()} triples")
     validatedGraph.vertices.collect().foreach(println(_))
-*/    
     sc.stop()
  
   }

@@ -51,6 +51,42 @@ class PSchemaSuite extends FunSuite
     assertEquals(result,expected)
   }
 
+  test("Human with P31".only) {
+     val gb: GraphBuilder[Entity,Statement] = for {
+       instanceOf <- P(31, "instance of")
+       timbl <- Q(80, "alice")
+       antarctica <- Q(51, "antarctica")
+       human <- Q(5, "Human")
+       continent <- Q(5107, "Continent")
+     } yield {
+       vertexEdges(List(
+         triple(antarctica, instanceOf.prec, continent),
+         triple(timbl, instanceOf.prec, human)
+       ))
+     }  
+     val graph = buildGraph(gb, spark.sparkContext)
+      
+     val schema = SampleSchemas.schemaSimple
+     val validatedGraph = 
+      PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
+        graph, ShapeLabel("Start"), 5)(
+          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+        )
+    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
+        validatedGraph.vertices.collect().toList
+    val result: List[(String, Set[String])] = 
+        vertices
+        .map{ case (_, sv) => (sv.value, sv.shapesInfo.okShapes.map(_.name))}
+        .collect { case (e: Entity, okShapes) => (e.entityId.id, okShapes)} 
+    val expected: List[(String,Set[String])] = List(
+        ("Q51", Set()), 
+        ("Q80", Set("Start"))
+        )
+    assertEquals(vertices.size,2)
+    assertEquals(result,expected)
+  }
+
+
   test("Basic local statements") {
    val gb: GraphBuilder[Entity,Statement] = for {
       name <- P(1, "name")
