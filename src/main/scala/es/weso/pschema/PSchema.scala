@@ -5,6 +5,7 @@ import org.apache.spark.graphx.Pregel
 import es.weso.collection._
 import es.weso.collection.Bag._
 import cats._
+import cats.data._
 import cats.implicits._
 import scala.reflect.ClassTag
 
@@ -64,7 +65,7 @@ object PSchema {
    * inconsistent shapes and pending shapes.
    *
    */
-   def apply[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering](
+  def apply[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering](
     graph: Graph[VD,ED],
     initialLabel: L,
     maxIterations: Int = Int.MaxValue) 
@@ -74,86 +75,140 @@ object PSchema {
      cnvEdge: ED => P  
     ): Graph[Shaped[VD,L,E,P],ED] = {
 
-    lazy val emptyBag: Bag[(P,L)] = Bag.empty[(P,L)] 
+  lazy val emptyBag: Bag[(P,L)] = Bag.empty[(P,L)] 
 
-    def vprog(
-      id: VertexId, 
-      v: Shaped[VD, L, E, P], 
-      msg: Msg[VD, L,P]
-      ): Shaped[VD, L, E, P] = {
+  def vprog(
+    id: VertexId, 
+    v: Shaped[VD, L, E, P], 
+    msg: Msg[VD, L,E,P]
+  ): Shaped[VD, L, E, P] = {
 
-       val pendingShapes = v.shapesInfo.pendingShapes 
+   // Update pending shapes looking at waiting for messages
+   val v1 = v.pendingShapes.foldLeft(v) {
+     case (v,pending) => {
+       val waitingFor = msg.waitFor.collect { case (l,t) if l == pending => t } 
+       v.withWaitingFor(pending,waitingFor,Set())
+     }
+   }
 
-       // Match outgoing bag of arcs with current pending shapes
-       val checkedValue = 
-        pendingShapes.foldLeft(v.withoutPendingShapes) {
-         case (v, pending) => checkLocal(pending, v.value) match {
-           case Left(err) => v.addNoShape(pending, err)
-           case Right(ls) => {
-             val neighsBag: Bag[(P,L)] = v.outgoing.getOrElse(msg.outgoing.getOrElse(emptyBag)) 
-             // check neighs coming from msg
-             val neighsChecked = checkNeighs(pending, neighsBag) match {
-                 case Left(err) => v.addNoShape(pending,err)
-                 case Right(_) => v.withOutgoing(neighsBag).addOKShape(pending)
-               }
-             neighsChecked
-             }
-           }
-        }
-
-      // Check requests to validate.
-      // If they can validate locally withoug pending labels, 
-      // they are not directly added to OK shapes  
-      val newValue = msg.validate.foldLeft(checkedValue) {
-        case (v,label) => checkLocal(label,v.value) match {
-          case Left(err) => v.addNoShape(label,err)
-          case Right(pending) => 
-            if (pending.isEmpty) v.addOKShape(label) 
-            else v.addPendingShapes(pending)
-        } 
-      }  
-
-//       val newValue = checkedValue.addPendingShapes(msg.validate)
-       println(s"VProg: vertexId: $id - newValue: $newValue")
-       newValue
+   val v2 = v1.waitingShapes.foldLeft(v1) {
+     case (v,(waitingLabel,ws)) => {
+       val notValidated = msg.notValidated.collect { case (l,t,e) if l == waitingLabel => (t,e) }
+       if (notValidated.nonEmpty) {
+         val es = NonEmptyList.fromList(notValidated.map(_._2).flatten.toList).get
+         v.withFailedShape(waitingLabel, es)
+       } else {
+       val validated = msg.validated.collect { case (l,t) if l == waitingLabel => t }
+       val rest = ws.ts.diff(validated)
+       if (rest.isEmpty) {
+         val neighsBag = mkBag(ws.validated.union(validated))
+         val neighsChecked = 
+          checkNeighs(waitingLabel, neighsBag) match {
+           case Left(err) => v.addNoShape(waitingLabel,err)
+           case Right(_) => v.addOkShape(waitingLabel)
+         }
+         neighsChecked
+       } else {
+         v.withWaitingFor(waitingLabel, rest, validated)
+       }
+     }
     }
+   }
 
-    def sendMsg(t: EdgeTriplet[Shaped[VD, L, E, P],ED]): Iterator[(VertexId, Msg[VD,L,P])] = {
-      val shapeLabels = t.srcAttr.shapesInfo.pendingShapes
+   // check requests to validate
+   // Check requests to validate.
+   // If they can validate locally withoug pending labels
+   // they are directly added to OK shapes  
+   // otherwise they are added to pending shapes
+   val v3 = msg.validate.foldLeft(v2) {
+    case (v,requestedLabel) => 
+     checkLocal(requestedLabel,v.value) match {
+      case Left(err) => v.addNoShape(requestedLabel,err)
+      case Right(pendingLabels) => 
+        if (v.unsolvedShapes contains requestedLabel) {
+        // Recursion case when requested to validate a shape which is already pending
+        // We are optimistic here and add it to okShapes
+        // Other possibilities would be to include an Unknown status...
+        v.addOkShape(requestedLabel)
+      } else 
+        if (pendingLabels.isEmpty) v.addOkShape(requestedLabel) 
+        else v.addPendingShapes(pendingLabels)
+    } 
+   }
+   println(s"""|VProg: vertexId: $id
+               |Old value: ${v}
+               |Msg received: ${msg}
+               |NewValue: $v3
+               |---------------------
+               |""".stripMargin)  
+   v3
+  }
+
+  def mkBag(s: Set[(VD,P,L)]): Bag[(P,L)] = 
+    Bag.toBag(s.map { case (_,p,l) => (p,l) })
+
+    def sendMsg(t: EdgeTriplet[Shaped[VD, L, E, P],ED]): Iterator[(VertexId, Msg[VD,L,E,P])] = {
+      val shapeLabels = t.srcAttr.unsolvedShapes
       val ls = shapeLabels.map(sendMessagesPending(_, t)).toIterator.flatten
       ls
     }
 
     def sendMessagesPending(
-      shapeLabel: L, 
-      triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]): Iterator[(VertexId, Msg[VD, L, P])] = {
+      pendingLabel: L, 
+      triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]): Iterator[(VertexId, Msg[VD, L, E,P])] = {
 
-     val tcs = getTripleConstraints(shapeLabel).filter(_._1 == cnvEdge(triplet.attr))
-      println(s"sendMessagesPending(${triplet.srcAttr.value}-${cnvEdge(triplet.attr)}-${triplet.dstAttr.value}): ${tcs.map(_._2.toString).mkString(",")}")
-      tcs.toIterator.map{ case (p,l) => sendMessagesTriplet(p, l, triplet) }.flatten
+     val tcs = getTripleConstraints(pendingLabel).filter(_._1 == cnvEdge(triplet.attr))
+      // println(s"sendMessagesPending(${triplet.srcAttr.value}-${cnvEdge(triplet.attr)}-${triplet.dstAttr.value}): ${tcs.map(_._2.toString).mkString(",")}")
+      tcs.toIterator.map{ case (p,l) => sendMessagesTripleConstraint(pendingLabel, p, l, triplet) }.flatten
     } 
 
-    def sendMessagesTriplet(
+
+    def sendMessagesTripleConstraint(
+      pendingLabel: L,
       p: P, 
       label: L, 
       triplet: EdgeTriplet[Shaped[VD, L, E, P],ED]
-      ): Iterator[(VertexId,Msg[VD,L,P])] = {
-        val subject = triplet.srcAttr
-//        if (subject.pending contains )
-      val msg1 = (triplet.srcId, Msg.outgoing[VD,L,P](Bag((p,label)))) // message to subject with outgoing arc
-      val msg2 = (triplet.dstId, Msg.validate[VD,L,P](Set(label)))  // message to object with pending shape
-      println(s"Msg1: $msg1")
-      println(s"Msg2: $msg2")
-      Iterator(msg1,msg2)
+      ): Iterator[(VertexId,Msg[VD,L,E,P])] = {
+      val obj = triplet.dstAttr
+      val msgs = if (obj.okShapes contains label) {
+        // tell src that label has been validated
+        List((triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstAttr.value))) // Msg.validated(pendingLabel, p, label, triplet.dstAttr.value)))
+      } else  if (obj.noShapes contains label) {
+        val es = obj.failedShapes.map(_._2.toList.toSet).flatten
+        List((triplet.srcId, notValidatedMsg(pendingLabel,p,label,triplet.dstAttr.value, es)))
+      } else {
+        // ask dst to validate label
+        List(
+          (triplet.dstId, validateMsg(label)),
+          (triplet.srcId, waitForMsg(pendingLabel,p,label,triplet.dstAttr.value))
+        )
+      }
+      println(s"Msgs: \n${msgs.mkString("\n")}")
+      msgs.toIterator
     }
 
+    def validateMsg(lbl: L): Msg[VD,L,E,P] = {
+      Msg.validate[VD,L,E,P](Set(lbl))
+    }
+
+    def waitForMsg(lbl: L, p:P, l:L, v: VD): Msg[VD,L,E,P] = {
+      Msg.waitFor[VD,L,E,P](lbl,p,l,v)
+    }
+
+    def notValidatedMsg(lbl: L, p: P, l: L, v: VD, es: Set[E]): Msg[VD,L,E,P] = {
+      Msg.notValidated(lbl, p, l, v, es)
+    }
+
+    def validatedMsg(lbl: L, p: P, l: L, v: VD): Msg[VD,L,E,P] = {
+      Msg.validated[VD,L,E,P](lbl, p, l, v)
+    }
        
-    def mergeMsg(p1: Msg[VD,L,P], p2: Msg[VD,L,P]): Msg[VD,L,P] = p1.merge(p2) 
+    def mergeMsg(p1: Msg[VD,L,E,P], p2: Msg[VD,L,E,P]): Msg[VD,L,E,P] = p1.merge(p2) 
 
     val shapedGraph: Graph[Shaped[VD, L, E, P], ED] = 
-        graph.mapVertices{ case (vid,v) => Shaped[VD,L,E,P](v, ShapesInfo.default) }
+        graph.mapVertices{ case (vid,v) => Shaped[VD,L,E,P](v, Map()) } // , ShapesInfo.default) }
 
-    val initialMsg: Msg[VD,L,P] = 
+    val initialMsg: Msg[VD,L,E,P] = 
         Msg.validate(Set(initialLabel))
 
     // Invoke pregel algorithm from SparkX    

@@ -16,3 +16,4 @@ case class NoValueValueSet(value: Value, valueSet: Set[Value]) extends Reason
 case class NoStringDatatype(value: Value) extends Reason
 case class ErrorsMatching(es: List[Reason]) extends Reason
 case class CardinalityError(count: Int, min: Int, max: IntOrUnbounded) extends Reason
+case class WaitingForFailed(es: Set[(Value, PropertyId, ShapeLabel)]) extends Reason

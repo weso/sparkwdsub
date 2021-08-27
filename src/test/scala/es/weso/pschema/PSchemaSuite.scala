@@ -10,9 +10,17 @@ import es.weso.simpleshex.Value._
 import es.weso.graphxhelpers.GraphBuilder._
 import org.apache.spark.graphx.VertexRDD
 import es.weso.rbe.interval._
+import scala.collection.immutable.SortedSet
 
 class PSchemaSuite extends FunSuite 
   with SparkSessionTestWrapper with DatasetComparer with RDDComparer {
+
+  private def sort(
+    ps: List[(String, List[String], List[String])]
+    ): List[(String, List[String], List[String])] = 
+    ps.map{ 
+      case (p, vs, es) => (p, vs.sorted, es.sorted) 
+    }.sortWith(_._1 < _._1) 
 
   import spark.implicits._
 
@@ -30,29 +38,54 @@ class PSchemaSuite extends FunSuite
     assertSmallRDDEquality(sourceRDD, expectedRDD)
   }
 
-  test("Simple graph") {
-     val graph = buildGraph(SampleSchemas.simpleGraph1, spark.sparkContext)
-     val schema = SampleSchemas.schemaSimple
-     val validatedGraph = PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-        graph, ShapeLabel("Start"), 5)(
-          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
-        )
-    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
+def testCase(
+  name: String,
+  gb: GraphBuilder[Entity,Statement], 
+  schema: Schema,
+  initialLabel: ShapeLabel,
+  expected: List[(String, List[String], List[String])],
+  maxIterations: Int = Int.MaxValue,
+)(implicit loc: munit.Location): Unit = {
+ test(name) { 
+  val graph = buildGraph(gb, spark.sparkContext)
+  val validatedGraph = 
+   PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
+     graph, initialLabel, maxIterations)(
+     schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+   )
+
+  val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
         validatedGraph.vertices.collect().toList
-    val result: List[(String, Set[String])] = 
-        vertices
-        .map{ case (_, sv) => (sv.value, sv.shapesInfo.okShapes.map(_.name))}
-        .collect { case (e: Entity, okShapes) => (e.entityId.id, okShapes)} 
-    val expected: List[(String,Set[String])] = List(
-        ("Q5", Set("Human")), 
-        ("Q80", Set("Start"))
-        )
-    assertEquals(vertices.size,2)
+
+  val result: List[(String, List[String], List[String])] = 
+    sort(
+     vertices
+     .map{ case (_, sv) => 
+      ( sv.value, 
+        sv.okShapes.map(_.name).toList, 
+        sv.noShapes.map(_.name).toList
+      )}
+      .collect { 
+       case (e: Entity, okShapes, noShapes) => 
+        (e.entityId.id, okShapes, noShapes) 
+       }
+      )
     assertEquals(result,expected)
   }
+ }
 
-  test("Human with P31".only) {
-     val gb: GraphBuilder[Entity,Statement] = for {
+ {
+   val graph = SampleSchemas.simpleGraph1
+   val schema = SampleSchemas.schemaSimple
+   val expected: List[(String,List[String],List[String])] = List(
+     ("Q5", List("Human"), List("Start")), 
+     ("Q80", List("Start"), List())
+    )
+   testCase("Simple graph", graph, schema, ShapeLabel("Start"), expected)
+ } 
+
+ {
+  val gb = for {
        instanceOf <- P(31, "instance of")
        timbl <- Q(80, "alice")
        antarctica <- Q(51, "antarctica")
@@ -63,31 +96,22 @@ class PSchemaSuite extends FunSuite
          triple(antarctica, instanceOf.prec, continent),
          triple(timbl, instanceOf.prec, human)
        ))
-     }  
-     val graph = buildGraph(gb, spark.sparkContext)
-      
-     val schema = SampleSchemas.schemaSimple
-     val validatedGraph = 
-      PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-        graph, ShapeLabel("Start"), 5)(
-          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
-        )
-    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
-        validatedGraph.vertices.collect().toList
-    val result: List[(String, Set[String])] = 
-        vertices
-        .map{ case (_, sv) => (sv.value, sv.shapesInfo.okShapes.map(_.name))}
-        .collect { case (e: Entity, okShapes) => (e.entityId.id, okShapes)} 
-    val expected: List[(String,Set[String])] = List(
-        ("Q51", Set()), 
-        ("Q80", Set("Start"))
-        )
-    assertEquals(vertices.size,2)
-    assertEquals(result,expected)
+     }
+    val schema = Schema(
+     Map(
+       ShapeLabel("Start") -> TripleConstraintRef(Pid(31), ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
+       ShapeLabel("Human") -> ValueSet(Set(ItemId("Q5"))) 
+     ))
+    val expected = sort(List(
+        ("Q5", List("Human"), List("Start")),
+        ("Q51", List(), List("Start")), 
+        ("Q5107", List(), List("Human", "Start")),
+        ("Q80", List("Start"), List()),
+    ))
+   testCase("Simple schema", gb,schema,ShapeLabel("Start"),expected,5)
   }
 
-
-  test("Basic local statements") {
+ {
    val gb: GraphBuilder[Entity,Statement] = for {
       name <- P(1, "name")
       knows <- P(2, "knows")
@@ -98,7 +122,6 @@ class PSchemaSuite extends FunSuite
         triple(alice, knows.prec, alice),
       ))
     }  
-   val graph = buildGraph(gb, spark.sparkContext)
    val schema = Schema(
       Map(
       ShapeLabel("Person") -> EachOf(List(
@@ -106,33 +129,13 @@ class PSchemaSuite extends FunSuite
         TripleConstraintRef(Pid(2), ShapeRef(ShapeLabel("Person")),0,Unbounded)
       ))
      ))
-      
-     val validatedGraph = PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-        graph, ShapeLabel("Person"), 5)(
-          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+    val expected: List[(String,List[String], List[String])] = List(
+         ("Q1", List("Person"),List()) 
         )
-    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
-        validatedGraph.vertices.collect().toList
-    val result: List[(String, Set[String], Set[String])] = 
-        vertices
-        .map{ 
-          case (_, sv) => 
-            (sv.value, 
-             sv.shapesInfo.okShapes.map(_.name),
-             sv.shapesInfo.noShapes.map(_.name)             
-            )}
-        .collect { 
-          case (e: Entity, okShapes, noShapes) => 
-            (e.entityId.id, okShapes, noShapes)
-          } 
-    val expected: List[(String,Set[String], Set[String])] = List(
-         ("Q1", Set("Person"),Set()) 
-        )
-    assertEquals(vertices.size,1)
-    assertEquals(result.sortWith(_._1 < _._1),expected)
+   testCase("Simple recursion", gb, schema, ShapeLabel("Person"), expected)
   }
 
-  test("Recursion basic") {
+  {
    val gb: GraphBuilder[Entity,Statement] = for {
       name <- P(1, "name")
       aliceBasic <- Q(1, "alice")
@@ -151,7 +154,6 @@ class PSchemaSuite extends FunSuite
         triple(dave, knows.prec, dave)
       ))
     }  
-   val graph = buildGraph(gb, spark.sparkContext)
    val schema = Schema(
       Map(
       ShapeLabel("Person") -> EachOf(List(
@@ -160,32 +162,14 @@ class PSchemaSuite extends FunSuite
       ))
      ))
       
-     val validatedGraph = PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-        graph, ShapeLabel("Person"), 5)(
-          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+   val expected: List[(String,List[String], List[String])] = List(
+        ("Q1", List("Person"),List()), 
+        ("Q2", List("Person"),List()),
+        ("Q3", List("Person"), List()),
+        ("Q4", List(), List("Person"))
         )
-    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
-        validatedGraph.vertices.collect().toList
-    val result: List[(String, Set[String], Set[String])] = 
-        vertices
-        .map{ 
-          case (_, sv) => 
-            (sv.value, 
-             sv.shapesInfo.okShapes.map(_.name),
-             sv.shapesInfo.noShapes.map(_.name)             
-            )}
-        .collect { 
-          case (e: Entity, okShapes, noShapes) => 
-            (e.entityId.id, okShapes, noShapes)
-          } 
-    val expected: List[(String,Set[String], Set[String])] = List(
-        ("Q1", Set("Person"),Set()), 
-        ("Q2", Set("Person"),Set()),
-        ("Q3", Set("Person"), Set()),
-        ("Q4", Set(), Set("Person"))
-        )
-    assertEquals(vertices.size,4)
-    assertEquals(result.sortWith(_._1 < _._1),expected)
-  }
+   
+    testCase("Recursion person", gb,schema, ShapeLabel("Person"), expected)
+  } 
 
 }
