@@ -18,14 +18,14 @@ case class ParseException(e: Throwable) extends ParseError(e.getMessage())
 case class ConversionError(e: ConvertError) extends ParseError(s"Error converting shEx to WShEx\nError: ${e}")
 
 case class Schema(
-  map: Map[ShapeLabel, ShapeExpr],
+  shapesMap: Map[ShapeLabel, ShapeExpr],
   start: Option[ShapeExpr] = None,
   pm: PrefixMap = PrefixMap.empty
   ) extends Serializable {
 
  def get(shapeLabel: ShapeLabel): Option[ShapeExpr] = shapeLabel match {
    case Start => start 
-   case _ => map.get(shapeLabel)
+   case _ => shapesMap.get(shapeLabel)
  }
 
  def checkLocal(label: ShapeLabel, entity: Entity): Either[Reason, Set[ShapeLabel]] = {

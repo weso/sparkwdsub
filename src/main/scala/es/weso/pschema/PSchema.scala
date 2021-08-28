@@ -8,6 +8,7 @@ import cats._
 import cats.data._
 import cats.implicits._
 import scala.reflect.ClassTag
+import org.apache.log4j.Logger
 
 /**
  * Pregel Schema validation
@@ -19,7 +20,10 @@ import scala.reflect.ClassTag
  * E = type of errors
  * P = type of property identifiers
  **/ 
-object PSchema {
+object PSchema extends Serializable {
+
+  // @transient lazy val log = org.apache.log4j.LogManager.getLogger("myLogger")
+  @transient lazy val log = Logger.getLogger(getClass.getName)
 
 /**
    * Execute a Pregel-like iterative vertex-parallel abstraction following 
@@ -135,7 +139,7 @@ object PSchema {
         else v.addPendingShapes(pendingLabels)
     } 
    }
-   println(s"""|VProg: vertexId: $id
+   log.info(s"""|VProg: vertexId: $id
                |Old value: ${v}
                |Msg received: ${msg}
                |NewValue: $v3
@@ -158,7 +162,7 @@ object PSchema {
       triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]): Iterator[(VertexId, Msg[VD, L, E,P])] = {
 
      val tcs = getTripleConstraints(pendingLabel).filter(_._1 == cnvEdge(triplet.attr))
-     println(s"""|sendMessagesPending(PendingLabel: ${pendingLabel}
+     log.info(s"""|sendMessagesPending(PendingLabel: ${pendingLabel}
                  |TripleConstraints: {${getTripleConstraints(pendingLabel).mkString(",")}}
                  |Triplet: ${triplet.srcAttr.value}-${cnvEdge(triplet.attr)}-${triplet.dstAttr.value})
                  |TCs: {${tcs.map(_._2.toString).mkString(",")}}""".stripMargin)
@@ -186,7 +190,9 @@ object PSchema {
           (triplet.srcId, waitForMsg(pendingLabel,p,label,triplet.dstAttr.value))
         )
       }
-      println(s"Msgs: \n${msgs.mkString("\n")}")
+      log.info(s"""|Msgs: 
+                   |${msgs.mkString("\n")}
+                   |""".stripMargin)
       msgs.toIterator
     }
 
