@@ -158,8 +158,11 @@ object PSchema {
       triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]): Iterator[(VertexId, Msg[VD, L, E,P])] = {
 
      val tcs = getTripleConstraints(pendingLabel).filter(_._1 == cnvEdge(triplet.attr))
-      // println(s"sendMessagesPending(${triplet.srcAttr.value}-${cnvEdge(triplet.attr)}-${triplet.dstAttr.value}): ${tcs.map(_._2.toString).mkString(",")}")
-      tcs.toIterator.map{ case (p,l) => sendMessagesTripleConstraint(pendingLabel, p, l, triplet) }.flatten
+     println(s"""|sendMessagesPending(PendingLabel: ${pendingLabel}
+                 |TripleConstraints: {${getTripleConstraints(pendingLabel).mkString(",")}}
+                 |Triplet: ${triplet.srcAttr.value}-${cnvEdge(triplet.attr)}-${triplet.dstAttr.value})
+                 |TCs: {${tcs.map(_._2.toString).mkString(",")}}""".stripMargin)
+     tcs.toIterator.map{ case (p,l) => sendMessagesTripleConstraint(pendingLabel, p, l, triplet) }.flatten
     } 
 
 

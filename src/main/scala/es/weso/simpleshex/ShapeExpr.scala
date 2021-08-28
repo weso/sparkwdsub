@@ -6,134 +6,113 @@ import es.weso.collection.Bag
 import es.weso.rbe.interval.IntOrUnbounded
 import cats._
 import cats.implicits._
+import es.weso.wbmodel._
+import es.weso.rdf.nodes._
 
-  sealed abstract class ShapeExpr extends Product with Serializable {
+sealed abstract class ShapeExpr extends Product with Serializable {
 
-    def dependsOn(): Set[ShapeLabel] = this match {
-      case s: ShapeRef => Set(s.label)
-      case t: TripleConstraintRef => t.value.dependsOn
-      case t: TripleConstraintLocal => Set()
-      case eo: EachOf => eo.exprs.foldLeft(Set[ShapeLabel]()){ case (e,s) => e.union(s.dependsOn) }
-      case oo: OneOf => oo.exprs.foldLeft(Set[ShapeLabel]()){ case (e,s) => e.union(s.dependsOn) }
-      case e: NodeConstraint => Set()
-      case EmptyExpr => Set() 
-    }
+ def dependsOn(): Set[ShapeLabel] = this match {
+   case s: ShapeRef => Set(s.label)
+   case s: Shape => s.expression.dependsOn
+   case e: NodeConstraint => Set()
+   case EmptyExpr => Set() 
+   case sand: ShapeAnd => sand.exprs.map(_.dependsOn).toSet.flatten
+   case sor: ShapeOr => sor.exprs.map(_.dependsOn).toSet.flatten
+   case sn: ShapeNot => sn.shapeExpr.dependsOn
+ }
 
-    def rbe: Rbe[(PropertyId,ShapeLabel)] = { 
-     lazy val empty: Rbe[(PropertyId,ShapeLabel)] = Empty 
-     this match {
-      case _: ShapeRef => empty
-      case t: TripleConstraintRef => Symbol((t.property, t.value.label), t.min, t.max)
-      case t: TripleConstraintLocal => empty
-      case eo: EachOf => 
-        eo.exprs.foldLeft(empty){ case (e,b) => And(e,b.rbe)}
-      case oo: OneOf => 
-        oo.exprs.foldLeft(empty){ case (e,b) => Or(e,b.rbe)}
-      case _: NodeConstraint => empty
-      case EmptyExpr => empty
-     }
-    }
+ lazy val empty: Rbe[(PropertyId,ShapeLabel)] = Empty 
 
-    implicit val showPair: Show[(PropertyId, ShapeLabel)] = Show.show(p => p.toString)
+ def rbe: Rbe[(PropertyId,ShapeLabel)] = { 
+  this match {
+    case _: ShapeRef => empty
+    case _: NodeConstraint => empty
+    case Shape(_,tripleExpr) => tripleExpr.rbe
+    case EmptyExpr => empty
+    case _ => empty // TODO!!
+   }
+  }
 
-    private lazy val checker = IntervalChecker(rbe)
+  implicit val showPair: Show[(PropertyId, ShapeLabel)] = Show.show(p => p.toString)
 
-    val tripleConstraints: List[TripleConstraintRef] = this match {
-      case _: ShapeRef => List()
+  private lazy val checker = IntervalChecker(rbe)
+
+  val tripleConstraints: List[TripleConstraintRef] = this match {
+    case _: ShapeRef => List()
+    case Shape(_,tripleExpr) => tripleExpr match {
       case t: TripleConstraintRef => List(t) 
       case t: TripleConstraintLocal => List()
       case eo: EachOf => eo.exprs.map(_.tripleConstraints).flatten
       case oo: OneOf => oo.exprs.map(_.tripleConstraints).flatten
-      case _: NodeConstraint => List()
       case _ => List()
     }
+      // tripleExpr.tripleConstraints
+    case _: NodeConstraint => List()
+    case _ => List()
+  }
 
-    def checkNeighs(bag: Bag[(PropertyId,ShapeLabel)]): Either[Reason, Unit] =
-       checker.check(bag,true) match {
-         case Left(es) => Left(NoMatch(bag,rbe,es))
-         case Right(_) => Right(())
-       } 
+  def checkNeighs(bag: Bag[(PropertyId,ShapeLabel)]): Either[Reason, Unit] =
+     checker.check(bag,true) match {
+       case Left(es) => Left(NoMatch(bag,rbe,es))
+       case Right(_) => Right(())
+     } 
 
-    def checkLocal(
-      entity: Entity, 
-      fromLabel: ShapeLabel
-      ): Either[Reason, Set[ShapeLabel]] = {
-     val result: Either[Reason,Set[ShapeLabel]] = this match {
-      case ShapeRef(label) => Right(Set(label))
-      case EmptyExpr => Right(Set())
-      case TripleConstraintRef(_,_,_,_) => Right(Set(fromLabel))
-      case TripleConstraintLocal(p,nc,min,max) => {
-        val found = entity.localStatements.filter(_.propertyRecord.id == p)
-        val dontMatch: List[Reason] = 
-          found.map(s => nc.matchLocal(s.literal)).collect { case Left(err) => err }
-        if (!dontMatch.isEmpty) Left(ErrorsMatching(dontMatch))
-        else {
-          val count = found.size
-          if (min <= count && max >= count) Right(Set())
-          else Left(CardinalityError(count,min,max))
-        }
-      }
-        
-      case EachOf(Nil) => Right(Set())
-      case EachOf(ts) => combineChecks(ts.map(t => t.checkLocal(entity,fromLabel)))
-      case OneOf(Nil) => Right(Set())
-      case OneOf(ts) => combineChecks(ts.map(t => t.checkLocal(entity,fromLabel)))
-      case ValueSet(vs) => entity match {
-        case e: Item => if (vs.contains(e.entityId)) Right(Set())
-        else Left(NoValueValueSet(entity,vs))
-        case _ => Left(NoValueValueSet(entity,vs))
-      }
+  def checkLocal(
+    entity: Entity, 
+    fromLabel: ShapeLabel
+   ): Either[Reason, Set[ShapeLabel]] = {
+    val result: Either[Reason,Set[ShapeLabel]] = this match {
+     case ShapeRef(label) => Right(Set(label))
+     case Shape(_,te) => te.checkLocal(entity, fromLabel)
+      case vs: ValueSet => vs.matchLocal(entity).map(_ => Set()) 
       case StringDatatype => entity match {
 //        case _: StringValue => Right(Set())
         case _ => Left(NoStringDatatype(entity))
       }
+      case EmptyExpr => Right(Set())
+      // TODO: ShapeAnd, ShapeOR, ShapeNot...
+      case _ => Right(Set())
      }
      // println(s"checkLocal(se: ${this}, entity: $entity,fromLabel: $fromLabel)=${result}")
      result
-    }   
+  }   
 
-    private def combineChecks(cs: List[Either[Reason, Set[ShapeLabel]]]): 
-      Either[Reason,Set[ShapeLabel]] = {
-      val (errs, lss) = cs.separate
-      if (errs.isEmpty) {
-        Right(lss.toSet.flatten)
-      } else 
-        Left(ErrorsMatching(errs))
-    }
 
-  }
+ }
 
+case class ShapeAnd(id: Option[ShapeLabel], exprs: List[ShapeExpr]) extends ShapeExpr
+case class ShapeOr(id: Option[ShapeLabel], exprs: List[ShapeExpr]) extends ShapeExpr
+case class ShapeNot(id: Option[ShapeLabel], shapeExpr: ShapeExpr) extends ShapeExpr
 case class ShapeRef(label: ShapeLabel) extends ShapeExpr 
-sealed abstract class TripleConstraint extends ShapeExpr
-case class TripleConstraintRef(
-  property: PropertyId, 
-  value: ShapeRef, 
-  min: Int, 
-  max: IntOrUnbounded
-  ) extends TripleConstraint
-case class TripleConstraintLocal(
-  property: PropertyId, 
-  value: NodeConstraint, 
-  min: Int, 
-  max: IntOrUnbounded
-  ) extends TripleConstraint
+case class Shape(id: Option[ShapeLabel], expression: TripleExpr) extends ShapeExpr 
+case object EmptyExpr extends ShapeExpr
 
-sealed abstract class TripleExpr extends ShapeExpr with Product with Serializable
-case class EachOf(exprs: List[TripleConstraint]) extends TripleExpr 
-case class OneOf(exprs: List[TripleConstraint]) extends TripleExpr 
-case object EmptyExpr extends TripleExpr 
 sealed abstract class NodeConstraint extends ShapeExpr {
   def matchLocal(value: Value): Either[Reason, Unit]
 }
-case class ValueSet(values: Set[Value]) extends NodeConstraint {
-  override def matchLocal(value: Value) = 
-    if (values contains value) Right(())
-    else Left(NoValueValueSet(value,values))
 
+
+case class ValueSet(id: Option[ShapeLabel], values: List[ValueSetValue]) extends NodeConstraint {
+  override def matchLocal(value: Value) = {
+    val found = value match {
+     case e: Entity => values.collect { case i: IRIValue => i.iri }.contains(e.entityId.iri)
+     case e: EntityId => values.collect { case i: IRIValue => i.iri }.contains(e.iri)
+//     case s: StringValue => values.collect { case s: StringValue => s.str }.contains(s)
+     case _ => false
+    }
+    if (found) Right(())
+    else Left(NoValueValueSet(value,values))
+  }
 }
+
+
 case object StringDatatype extends NodeConstraint {
   override def matchLocal(value: Value) = value match {
     case _: StringValue => ().asRight
     case _ => NoStringDatatype(value).asLeft
   }
 }
+
+sealed trait ValueSetValue 
+sealed trait ObjectValue extends ValueSetValue
+case class IRIValue(iri: IRI) extends ObjectValue

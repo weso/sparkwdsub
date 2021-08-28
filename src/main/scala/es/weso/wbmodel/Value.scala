@@ -1,21 +1,44 @@
-package es.weso.simpleshex
+package es.weso.wbmodel
 import es.weso.graphxhelpers._
 import es.weso.graphxhelpers.GraphBuilder._
 import es.weso.rdf.nodes._
 import org.apache.spark.graphx._
 import cats.implicits._
 import cats._
+import es.weso.rdf.nodes._
+
+object Utils {
+  
+  def splitIri(iri: IRI): (String, String) = {
+    val iriStr = iri.getLexicalForm
+    val separator = iriStr.lastIndexOf('/') + 1;
+    try {
+      (iriStr.substring(separator), iriStr.substring(0, separator))   
+    } catch {
+      case e: IllegalArgumentException => throw new IllegalArgumentException("Invalid Wikibase entity IRI: " + iriStr, e)
+    }
+  }
+
+}
 
 sealed abstract trait Value extends Product with Serializable 
 
 sealed abstract class EntityId extends Value {
   def id: String
+  def iri: IRI
 }
 
-case class PropertyId(id: String) extends EntityId
+case class PropertyId(
+  id: String, 
+  iri: IRI
+  ) extends EntityId
 object PropertyId {
   implicit val showPropertyId: Show[PropertyId] = Show.show(p => p.id.toString)
   implicit val orderingById: Ordering[PropertyId] = Ordering.by(_.id)
+  def fromIRI(iri: IRI): PropertyId = {
+    val (name, base) = Utils.splitIri(iri)
+    PropertyId(name, iri)
+  }
 }
 
 case class PropertyRecord(id: PropertyId, vertexId: VertexId)
@@ -27,7 +50,7 @@ sealed abstract class Entity extends Value {
   def withLocalStatement(prec: PropertyRecord, literal: LiteralValue, qs: List[Qualifier]): Entity
 }
 
-case class ItemId(id: String) extends EntityId
+case class ItemId(id: String, iri: IRI) extends EntityId
 
 case class Item(
     itemId: ItemId, 
@@ -38,7 +61,7 @@ case class Item(
     ) extends Entity {
     lazy val entityId = itemId  
     def iri: IRI = IRI(siteIri + "/" + itemId.id)
-    override def toString = s"${itemId.id}-$label@$vertexId"
+    override def toString = s"${itemId.id}(${itemId.iri.getLexicalForm})-$label@$vertexId"
 
     override def withLocalStatement(
       prec: PropertyRecord, 
@@ -155,12 +178,19 @@ object Value {
 
   def Q(num: Int, label: String, site: String = siteDefault): Builder[Item] =  for {
       id <- getIdUpdate
-    } yield Item(ItemId("Q" + num), id, label, site, List())
+    } yield {
+      val qid = "Q" + num
+      Item(ItemId(qid, iri = mkSite(site, qid)), id, label, site, List())
+    }
 
+  def mkSite(base: String, localName: String) = IRI(base + "/" + localName)
 
   def P(num: Int, label: String, site: String = siteDefault): Builder[Property] = for {
       id <- getIdUpdate
-  } yield Property(PropertyId("P" + num), id, label, site, List())
+  } yield {
+    val pid = "P" + num
+    Property(PropertyId(pid, mkSite(site,pid)), id, label, site, List())
+  }
 
   def Date(date: String): DateValue = 
     DateValue(date) 
@@ -168,7 +198,10 @@ object Value {
   def Str(str: String): StringValue = 
     StringValue(str)
 
-  def Pid(num: Int): PropertyId = PropertyId("P" + num)
+  def Pid(num: Int, site: String = siteDefault): PropertyId = {
+    val pid = "P" + num
+    PropertyId(pid, mkSite(site, pid))
+  }
 
   def statement(
     subject: Entity,

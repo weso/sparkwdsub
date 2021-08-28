@@ -1,0 +1,8 @@
+[
+{"type":"item","aliases":{},"labels":{},"descriptions":{},"sitelinks":{},"id":"Q62","claims":{"P31":[{"rank":"normal","mainsnak":{"snaktype":"value","property":"P31","datavalue":{"type":"wikibase-entityid","value":{"entity-type":"item","numeric-id":515}},"datatype":"wikibase-item"},"id":"Q62$b21e6bb2-4bb5-7692-d436-d2d22d6bf063","type":"statement"}]}},
+{"type":"item","aliases":{},"labels":{},"descriptions":{},"sitelinks":{},"id":"Q68","claims":{"P31":[{"rank":"normal","mainsnak":{"snaktype":"value","property":"P31","datavalue":{"type":"wikibase-entityid","value":{"entity-type":"item","numeric-id":12468333}},"datatype":"wikibase-item"},"id":"Q68$2C1D1AAF-A295-403E-AFCB-EB902DB5762F","type":"statement"}]}},
+{"type":"item","aliases":{},"labels":{},"descriptions":{},"sitelinks":{},"id":"Q75","claims":{"P31":[{"rank":"normal","mainsnak":{"snaktype":"value","property":"P31","datavalue":{"type":"wikibase-entityid","value":{"entity-type":"item","numeric-id":1301371}},"datatype":"wikibase-item"},"id":"q75$09CE92CB-C019-4E99-B6A5-4460B5DC1AA2","type":"statement"}]}},
+{"type":"item","aliases":{},"labels":{},"descriptions":{},"sitelinks":{},"id":"Q515","claims":{}},
+{"type":"item","aliases":{},"labels":{},"descriptions":{},"sitelinks":{},"id":"Q12468333","claims":{}},
+{"type":"item","aliases":{},"labels":{},"descriptions":{},"sitelinks":{},"id":"Q1301371","claims":{}}
+]

@@ -9,7 +9,8 @@ import scala.jdk.CollectionConverters._
 import es.weso.collection.Bag
 import es.weso.graphxhelpers.GraphBuilder._
 import es.weso.pschema._
-import es.weso.simpleshex.Value._
+import es.weso.wbmodel._
+import es.weso.wbmodel.Value._
 import org.apache.spark.sql.DataFrameStatFunctions
 import es.weso.simpleshex._
 //import es.weso.wikibase._
@@ -59,13 +60,13 @@ object SimpleApp {
      case id: ItemDocument => { 
       val label = Option(id.findLabel("en")).getOrElse("")
       (vertexId, 
-       Item(ItemId(id.getEntityId().getId()), vertexId, label, id.getEntityId().getSiteIri(), List())
+       Item(ItemId(id.getEntityId().getId(), IRI(id.getEntityId().getIri())), vertexId, label, id.getEntityId().getSiteIri(), List())
       ) 
       }
      case pd: PropertyDocument => {
       val label = Option(pd.findLabel("en")).getOrElse("")
       (vertexId, 
-       Property(PropertyId(pd.getEntityId().getId()), vertexId, label, pd.getEntityId().getSiteIri(), List())
+       Property(PropertyId(pd.getEntityId().getId(), IRI(pd.getEntityId().getIri())), vertexId, label, pd.getEntityId().getSiteIri(), List())
       )
      }
     }
@@ -77,7 +78,7 @@ object SimpleApp {
     case ev: EntityIdValue => {
       val subjectId = mkVertexId(s.getSubject())     
       val wdpid = s.getMainSnak().getPropertyId()
-      val pid = PropertyId(wdpid.getId())
+      val pid = PropertyId(wdpid.getId(), IRI(wdpid.getIri()))
       val pVertex = mkVertexId(wdpid)
       val valueId = mkVertexId(ev)
       // TODO. Collect qualifiers
@@ -100,6 +101,7 @@ object SimpleApp {
 
     val master = "local"
     val partitions = 1
+    val dumpFilePath = args(0)
 
     lazy val spark: SparkSession = SparkSession
       .builder()
@@ -116,7 +118,7 @@ object SimpleApp {
     lazy val jsonDeserializer = new helpers.JsonDeserializer(site)
 
     val vertices: RDD[(Long,Entity)] = 
-      sc.textFile("examples/dump.json")
+      sc.textFile(dumpFilePath)
       .filter(!brackets(_))
       .map(line => { 
         val jsonDeserializer = new JsonDeserializer( "http://www.wikidata.org/entity/" )
@@ -125,7 +127,7 @@ object SimpleApp {
       })
 
     val edges = 
-      sc.textFile("examples/dump.json")
+      sc.textFile(dumpFilePath)
       .filter(!brackets(_))
       .map(line => { 
         val jsonDeserializer = new JsonDeserializer( "http://www.wikidata.org/entity/" )
@@ -134,26 +136,61 @@ object SimpleApp {
       }).flatMap(identity)
 
 
+    println(s"Vertices: ")  
     println(vertices.collect().map(_.toString()).mkString("\n"))
+    println(s"Edges: ")  
+    println(edges.collect().map(_.toString()).mkString("\n"))
+    println(s"---------------")
 
     val graph = Graph(vertices,edges)
-    val initialLabel = ShapeLabel("Start")
-    val schema = Schema(Map(
-      ShapeLabel("Start") -> TripleConstraintRef(Pid(31), ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
-      ShapeLabel("Human") -> ValueSet(Set(ItemId("Q5"))) 
-    ))
+    val initialLabel = Start
+    val schemaStr = 
+      """|prefix wde: <http://www.wikidata.org/entity/>
+         |
+         |Start = @<City>
+         |<City> {
+         | wde:P31 @<CityCode> 
+         |}
+         |<CityCode> [ wde:Q515 ]
+         |""".stripMargin
 
-    val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] = 
-      PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-        graph, initialLabel, 5)(
-          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
-        )
+    val eitherSchema = Schema.unsafeFromString(schemaStr, CompactFormat)
 
-    println(s"Validated graph: ${validatedGraph.triplets.count()} triples")
-    validatedGraph.vertices.collect().foreach(println(_))
+    eitherSchema.fold(
+      e => println(s"Error parsing schema: $e"),
+      schema => {
+       val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] = 
+       PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
+         graph, initialLabel, 5)(
+           schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+         )
+
+      println(s"""|-------------------------------
+                  |End of validation
+                  |-------------------------------""".stripMargin)   
+      println(s"Results: ${validatedGraph.triplets.count()} triples")
+      validatedGraph
+      .vertices
+      .filter(containsValidShapes)
+      .map(getIdShapes(_))
+      .collect()
+      .foreach(println(_))
+     }
+    )
+
     sc.stop()
  
   }
 
+
+  def containsValidShapes(pair: (VertexId, Shaped[Entity,ShapeLabel,Reason, PropertyId])): Boolean = {
+    val (_,v) = pair
+    v.okShapes.nonEmpty
+  }
+
+  def getIdShapes(pair: (VertexId, Shaped[Entity,ShapeLabel,Reason, PropertyId])): (String, Set[String], Set[String]) = {
+    val (_,v) = pair
+    (v.value.entityId.id, v.okShapes.map(_.name), v.noShapes.map(_.name))
+  }
 
 }

@@ -1,32 +1,37 @@
 package es.weso.pschema
 
 import es.weso.simpleshex._
-import es.weso.simpleshex.Value._
+import es.weso.wbmodel._
+import es.weso.wbmodel.Value._
 import es.weso.rbe.interval._
 import es.weso.graphxhelpers.GraphBuilder._
+import es.weso.rdf.nodes._
 
 object SampleSchemas {
 
   val schemaResearcher = Schema(
     Map(
-      ShapeLabel("Start") -> ShapeRef(ShapeLabel("Researcher")),
-      ShapeLabel("Researcher") -> EachOf(List(
-        TripleConstraintRef(Pid(31), ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
-        TripleConstraintRef(Pid(19), ShapeRef(ShapeLabel("Place")),1,IntLimit(1))
-      )),
-      ShapeLabel("Place") -> EachOf(List(
-        TripleConstraintRef(Pid(17), ShapeRef(ShapeLabel("Country")),1,IntLimit(1))
-      )),
-      ShapeLabel("Country") -> EmptyExpr,
-      ShapeLabel("Human") -> ValueSet(Set(ItemId("Q5"))) 
+      Start -> ShapeRef(IRILabel(IRI("Researcher"))),
+      IRILabel(IRI("Researcher")) -> Shape(None,EachOf(List(
+        TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)),
+        TripleConstraintRef(Pid(19), ShapeRef(IRILabel(IRI("Place"))),1,IntLimit(1))
+      ))),
+      IRILabel(IRI("Place")) -> Shape(None, EachOf(List(
+        TripleConstraintRef(Pid(17), ShapeRef(IRILabel(IRI("Country"))),1,IntLimit(1))
+      ))),
+      IRILabel(IRI("Country")) -> EmptyExpr,
+      IRILabel(IRI("Human")) -> ValueSet(None,List(IRIValue(IRI("http://www.wikidata.org/entity/Q5"))))
     )
   )
 
   val schemaSimple = Schema(
-    Map(
-      ShapeLabel("Start") -> TripleConstraintRef(Pid(31), ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
-      ShapeLabel("Human") -> ValueSet(Set(ItemId("Q5"))) 
-    ))
+     Map(
+       IRILabel(IRI("Human")) -> ValueSet(None,List(IRIValue(IRI("http://www.wikidata.org/entity/Q5")))) 
+     ), 
+     start = Some(
+       Shape(None, TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)))
+     )
+    )
 
     val simpleGraph1: GraphBuilder[Entity, Statement] = for {
       human <- Q(5, "Human")

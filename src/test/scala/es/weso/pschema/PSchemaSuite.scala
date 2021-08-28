@@ -6,11 +6,13 @@ import org.apache.spark.sql.functions._
 import com.github.mrpowers.spark.fast.tests._
 import munit._
 import es.weso.simpleshex._
-import es.weso.simpleshex.Value._
+import es.weso.wbmodel.Value._
+import es.weso.wbmodel._
 import es.weso.graphxhelpers.GraphBuilder._
 import org.apache.spark.graphx.VertexRDD
 import es.weso.rbe.interval._
 import scala.collection.immutable.SortedSet
+import es.weso.rdf.nodes._
 
 class PSchemaSuite extends FunSuite 
   with SparkSessionTestWrapper with DatasetComparer with RDDComparer {
@@ -74,17 +76,17 @@ def testCase(
   }
  }
 
- {
+{
    val graph = SampleSchemas.simpleGraph1
    val schema = SampleSchemas.schemaSimple
    val expected: List[(String,List[String],List[String])] = List(
      ("Q5", List("Human"), List("Start")), 
      ("Q80", List("Start"), List())
     )
-   testCase("Simple graph", graph, schema, ShapeLabel("Start"), expected)
- } 
+   testCase("Simple graph", graph, schema, Start, expected)
+} 
 
- {
+{
   val gb = for {
        instanceOf <- P(31, "instance of")
        timbl <- Q(80, "alice")
@@ -99,8 +101,8 @@ def testCase(
      }
     val schema = Schema(
      Map(
-       ShapeLabel("Start") -> TripleConstraintRef(Pid(31), ShapeRef(ShapeLabel("Human")),1,IntLimit(1)),
-       ShapeLabel("Human") -> ValueSet(Set(ItemId("Q5"))) 
+       IRILabel(IRI("Start")) -> Shape(None,TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1))),
+       IRILabel(IRI("Human")) -> ValueSet(None,List(IRIValue(IRI("http://www.wikidata.org/entity/Q5")))) 
      ))
     val expected = sort(List(
         ("Q5", List("Human"), List("Start")),
@@ -108,7 +110,12 @@ def testCase(
         ("Q5107", List(), List("Human", "Start")),
         ("Q80", List("Start"), List()),
     ))
-   testCase("Simple schema", gb,schema,ShapeLabel("Start"),expected,5)
+   testCase(
+     "Simple schema", 
+     gb,schema,
+     IRILabel(IRI("Start")),
+     expected,
+     5)
   }
 
  {
@@ -124,15 +131,15 @@ def testCase(
     }  
    val schema = Schema(
       Map(
-      ShapeLabel("Person") -> EachOf(List(
+      IRILabel(IRI("Person")) -> Shape(None,EachOf(List(
         TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
-        TripleConstraintRef(Pid(2), ShapeRef(ShapeLabel("Person")),0,Unbounded)
-      ))
+        TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
+      )))
      ))
     val expected: List[(String,List[String], List[String])] = List(
          ("Q1", List("Person"),List()) 
         )
-   testCase("Simple recursion", gb, schema, ShapeLabel("Person"), expected)
+   testCase("Simple recursion", gb, schema, IRILabel(IRI("Person")), expected)
   }
 
   {
@@ -156,10 +163,10 @@ def testCase(
     }  
    val schema = Schema(
       Map(
-      ShapeLabel("Person") -> EachOf(List(
+      IRILabel(IRI("Person")) -> Shape(None, EachOf(List(
         TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
-        TripleConstraintRef(Pid(2), ShapeRef(ShapeLabel("Person")),0,Unbounded)
-      ))
+        TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
+      )))
      ))
       
    val expected: List[(String,List[String], List[String])] = List(
@@ -169,7 +176,7 @@ def testCase(
         ("Q4", List(), List("Person"))
         )
    
-    testCase("Recursion person", gb,schema, ShapeLabel("Person"), expected)
+    testCase("Recursion person", gb,schema, IRILabel(IRI("Person")), expected)
   } 
 
 }
