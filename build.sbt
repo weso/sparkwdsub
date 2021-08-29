@@ -54,6 +54,7 @@ lazy val sparkWdsubRoot = project
       sparkSql, 
       sparkGraphx, 
       jackson,
+      decline, declineEffect,
       sparkFast % Test
     ),
     fork := true,

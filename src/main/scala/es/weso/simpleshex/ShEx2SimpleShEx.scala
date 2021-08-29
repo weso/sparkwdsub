@@ -85,10 +85,23 @@ object ShEx2SimpleShEx {
     }
 
   private def convertShape(s: shex.Shape): Either[ConvertError,Shape] = s match {
-    case shex.Shape(id, None, None, None, Some(expr), None, None, None, None) => 
-      convertTripleExpr(expr).map(te => Shape(id = convertId(id),expression = te))
+    case s: shex.Shape => for {
+      te <- optConvert(s.expression, convertTripleExpr)
+    } yield Shape(
+          id = convertId(s.id),
+          closed = s.closed.getOrElse(false),
+          extra = s.extra.getOrElse(List()).map(PropertyId.fromIRI(_)),
+          expression = te)
     case _ => UnsupportedShape(s).asLeft
   }
+
+  private def optConvert[A,B](
+    v: Option[A], 
+    cnv: A => Either[ConvertError,B]
+    ): Either[ConvertError, Option[B]] = 
+    v.fold(none[B].asRight[ConvertError])(
+      a => cnv(a).map(Some(_))
+    )
 
   private def convertTripleExpr(te: shex.TripleExpr): Either[ConvertError, TripleExpr] = 
    te match {
@@ -114,6 +127,10 @@ object ShEx2SimpleShEx {
     }
     case tc: shex.TripleConstraint => 
       convertTripleConstraint(tc)
+    case _ => {
+      println(s"Unsupported triple expression: $te")
+      Left(UnsupportedTripleExpr(te))
+    }  
   }
 
   private def castToTripleConstraint(
@@ -137,10 +154,14 @@ object ShEx2SimpleShEx {
       }
       pred = PropertyId.fromIRI(tc.predicate)
       tc <- se match { 
+      case None => Right(TripleConstraintLocal(pred, EmptyExpr, min, max))
       case Some(ShapeRef(lbl)) => Right(TripleConstraintRef(pred, ShapeRef(lbl), min, max))
       case Some(ValueSet(id,vs)) => Right(TripleConstraintLocal(pred, ValueSet(id,vs),min,max))
-      case _ => Left(UnsupportedTripleConstraint(tc))
+      case _ => {
+        println(s"Unsupported triple constraint: $tc")
+        Left(UnsupportedTripleConstraint(tc))
       }
+     }
     } yield tc
   }
 

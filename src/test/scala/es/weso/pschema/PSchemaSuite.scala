@@ -101,7 +101,7 @@ def testCase(
      }
     val schema = Schema(
      Map(
-       IRILabel(IRI("Start")) -> Shape(None,TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1))),
+       IRILabel(IRI("Start")) -> Shape(None,false,List(),Some(TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)))),
        IRILabel(IRI("Human")) -> ValueSet(None,List(IRIValue(IRI("http://www.wikidata.org/entity/Q5")))) 
      ))
     val expected = sort(List(
@@ -131,10 +131,10 @@ def testCase(
     }  
    val schema = Schema(
       Map(
-      IRILabel(IRI("Person")) -> Shape(None,EachOf(List(
+      IRILabel(IRI("Person")) -> Shape(None, false, List(), Some(EachOf(List(
         TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
         TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
-      )))
+      ))))
      ))
     val expected: List[(String,List[String], List[String])] = List(
          ("Q1", List("Person"),List()) 
@@ -163,10 +163,10 @@ def testCase(
     }  
    val schema = Schema(
       Map(
-      IRILabel(IRI("Person")) -> Shape(None, EachOf(List(
+      IRILabel(IRI("Person")) -> Shape(None, false,List(), Some(EachOf(List(
         TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
         TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
-      )))
+      ))))
      ))
       
    val expected: List[(String,List[String], List[String])] = List(

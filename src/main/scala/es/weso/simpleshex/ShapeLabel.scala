@@ -4,6 +4,7 @@ import cats._
 
 sealed abstract class ShapeLabel extends Serializable with Product {
   def name: String
+  override def toString = name
 }
 case object Start extends ShapeLabel {
   override def name = "Start"

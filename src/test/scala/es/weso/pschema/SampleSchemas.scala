@@ -12,13 +12,13 @@ object SampleSchemas {
   val schemaResearcher = Schema(
     Map(
       Start -> ShapeRef(IRILabel(IRI("Researcher"))),
-      IRILabel(IRI("Researcher")) -> Shape(None,EachOf(List(
+      IRILabel(IRI("Researcher")) -> Shape(None,false,List(),Some(EachOf(List(
         TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)),
         TripleConstraintRef(Pid(19), ShapeRef(IRILabel(IRI("Place"))),1,IntLimit(1))
-      ))),
-      IRILabel(IRI("Place")) -> Shape(None, EachOf(List(
+      )))),
+      IRILabel(IRI("Place")) -> Shape(None, false, List(), Some(EachOf(List(
         TripleConstraintRef(Pid(17), ShapeRef(IRILabel(IRI("Country"))),1,IntLimit(1))
-      ))),
+      )))),
       IRILabel(IRI("Country")) -> EmptyExpr,
       IRILabel(IRI("Human")) -> ValueSet(None,List(IRIValue(IRI("http://www.wikidata.org/entity/Q5"))))
     )
@@ -29,7 +29,7 @@ object SampleSchemas {
        IRILabel(IRI("Human")) -> ValueSet(None,List(IRIValue(IRI("http://www.wikidata.org/entity/Q5")))) 
      ), 
      start = Some(
-       Shape(None, TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)))
+       Shape(None, false,List(), Some(TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1))))
      )
     )
 

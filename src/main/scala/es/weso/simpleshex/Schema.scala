@@ -31,21 +31,34 @@ case class Schema(
  def checkLocal(label: ShapeLabel, entity: Entity): Either[Reason, Set[ShapeLabel]] = {
    get(label) match {
      case None => Left(ShapeNotFound(label,this))
-     case Some(se) => se.checkLocal(entity, label)
+     case Some(se) => se.checkLocal(entity, label, this)
    }
  }
 
- def checkNeighs(label: ShapeLabel, neighs: Bag[(PropertyId,ShapeLabel)]): Either[Reason, Unit] = {
+ def checkNeighs(
+   label: ShapeLabel, 
+   neighs: Bag[(PropertyId,ShapeLabel)],
+   failed: Set[(PropertyId, ShapeLabel)]
+   ): Either[Reason, Unit] = {
    get(label) match {
      case None => Left(ShapeNotFound(label,this))
-     case Some(se) => se.checkNeighs(neighs)
+     case Some(se) => se.checkNeighs(neighs, failed, this)
    }
  }
 
  def getTripleConstraints(label: ShapeLabel): List[(PropertyId, ShapeLabel)] = {
    get(label) match {
      case None => List()
-     case Some(se) => se.tripleConstraints.map(tc => (tc.property, tc.value.label))
+     case Some(se) => {
+      val tcs = se.tripleConstraints(this).map(tc => 
+        (tc.property, tc.value.label)
+      )
+      println(s"""|TripleConstraints($label)=
+                  |${tcs.mkString("\n")}
+                  |---end TripleConstraints($label)
+                  |""".stripMargin)
+      tcs
+     }
    }
  }
 }
@@ -69,7 +82,7 @@ object Schema {
         }
     }
 
- def fromPath(
+  def fromPath(
    path: Path, 
    format: WShExFormat = CompactFormat
    ): IO[Schema] = for {
@@ -78,6 +91,15 @@ object Schema {
     schema <- IO.fromEither(ShEx2SimpleShEx.convertSchema(resolvedSchema))
   } yield schema
 
+ /**
+   * Read a Schema from a file
+   * This version is unsafe in the sense that it can throw exceptions
+   * Use `fromPath` for a safe version which returns an `IO[Schema]`
+   *
+   * @param path file to read
+   * @param format it can be CompactFormat or JsonFormat
+   * @return the schema
+   */ 
  def unsafeFromPath(
    path: Path, 
    format: WShExFormat = CompactFormat

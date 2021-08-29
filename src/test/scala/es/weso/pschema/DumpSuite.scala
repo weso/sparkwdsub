@@ -40,27 +40,27 @@ def testCase(
     err => fail(s"Error parsing schema: $err"),
     schema => {
         val validatedGraph = 
-   PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-     graph, initialLabel, maxIterations)(
-     schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
-   )
+         PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
+          graph, initialLabel, maxIterations)(
+          schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+        )
 
-  val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
+    val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
         validatedGraph.vertices.collect().toList
 
-  val result: List[(String, List[String], List[String])] = 
-   sort(
-     vertices
-     .map{ case (_, sv) => 
-      ( sv.value, 
-        sv.okShapes.map(_.name).toList, 
-        sv.noShapes.map(_.name).toList
-      )}
-      .collect { 
-       case (e: Entity, okShapes, noShapes) => 
-        (e.entityId.id, okShapes, noShapes) 
-       }
-      )
+    val result: List[(String, List[String], List[String])] = 
+      sort(
+       vertices
+       .map{ case (_, sv) => 
+        ( sv.value, 
+          sv.okShapes.map(_.name).toList, 
+          sv.noShapes.map(_.name).toList
+        )}
+        .collect { 
+          case (e: Entity, okShapes, noShapes) => 
+           (e.entityId.id, okShapes, noShapes) 
+          }
+         )
     assertEquals(result,expected)
     }  
    )
@@ -95,12 +95,12 @@ private def sort(
       |<CityCode> [ wde:Q515 ]
       |""".stripMargin
   val expected = sort(List(
-     ("Q12468333", Nil, List("City","CityCode")),
-     ("Q1301371", Nil, List("City","CityCode")),
-     ("Q62", List("City"), List()),
-     ("Q68", List(), List("City")),
-     ("Q75", List(), List("City")),
-     ("Q515", List("CityCode"), List("City"))
+     ("Q12468333", Nil, List("Start","CityCode")),
+     ("Q1301371", Nil, List("Start","CityCode")),
+     ("Q62", List("Start"), List()),
+     ("Q68", List(), List("Start")),
+     ("Q75", List(), List("Start")),
+     ("Q515", List("CityCode"), List("Start"))
      ))
   testCase("3lines",dumpStr,schemaStr,expected)
  }

@@ -7,10 +7,11 @@ import cats.implicits._
 
 sealed abstract class ValidationStatus[+VD,+L,+E,+P]
 case object Pending extends ValidationStatus[Nothing,Nothing,Nothing,Nothing]
-case class WaitingFor[VD,L,P](
+case class WaitingFor[VD,L,E,P](
   ts: Set[(VD,P,L)],
-  validated: Set[(VD,P,L)]
-) extends ValidationStatus[VD,L,Nothing,P]
+  validated: Set[(VD,P,L)],
+  notValidated: Set[((VD,P,L), Set[E])]
+) extends ValidationStatus[VD,L,E,P]
 case object Ok extends ValidationStatus[Nothing,Nothing,Nothing,Nothing]
 case class Failed[E](es: NonEmptyList[E]) extends ValidationStatus[Nothing,Nothing,E,Nothing]
 case object Inconsistent extends ValidationStatus[Nothing,Nothing,Nothing,Nothing]
@@ -38,7 +39,7 @@ case class Shaped[VD,L,E,P](
   lazy val checkedShapes = okShapes ++ noShapes ++ inconsistentShapes
 
   lazy val waitingShapes = statusMap.collect {
-    case (l, w@WaitingFor(_,_)) => (l,w)
+    case (l, w@WaitingFor(_,_,_)) => (l,w)
   }.toSet
 
   lazy val unsolvedShapes = pendingShapes ++ waitingShapes.map(_._1)
@@ -54,7 +55,7 @@ case class Shaped[VD,L,E,P](
     val newStatus = statusMap.get(l) match {
       case None => this.statusMap + ((l,Failed(es)))
       case Some(Pending) => this.statusMap + ((l,Failed(es)))
-      case Some(WaitingFor(_,_)) => this.statusMap + ((l,Failed(es)))
+      case Some(WaitingFor(_,_,_)) => this.statusMap + ((l,Failed(es)))
       case Some(Failed(es1)) => this.statusMap + ((l,Failed(es1.concatNel(es))))
       case Some(Ok) => this.statusMap + ((l,Inconsistent))
       case Some(Inconsistent) => this.statusMap
@@ -62,13 +63,13 @@ case class Shaped[VD,L,E,P](
    this.copy(statusMap = newStatus) 
   }
 
-  def withWaitingFor(l: L, ws: Set[(VD,P,L)], validated: Set[(VD,P,L)]) = {
+  def withWaitingFor(l: L, ws: Set[(VD,P,L)], validated: Set[(VD,P,L)], notValidated: Set[((VD,P,L),Set[E])]) = {
     val newStatus = statusMap.get(l) match {
-      case None => this.statusMap + ((l,WaitingFor(ws, validated)))
-      case Some(Pending) => this.statusMap + ((l,WaitingFor(ws,validated)))
-      case Some(WaitingFor(ws1,vs1)) => 
+      case None => this.statusMap + ((l,WaitingFor(ws, validated, notValidated)))
+      case Some(Pending) => this.statusMap + ((l,WaitingFor(ws,validated,notValidated)))
+      case Some(WaitingFor(ws1,vs1,nvs1)) => 
         this.statusMap + (
-          (l,WaitingFor(ws1 ++ ws, vs1 ++ validated)))
+          (l,WaitingFor(ws1 ++ ws, vs1 ++ validated, nvs1 ++ notValidated)))
       case Some(_) => this.statusMap 
     }
    this.copy(statusMap = newStatus) 

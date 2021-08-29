@@ -48,6 +48,9 @@ sealed abstract class Entity extends Value {
   val entityId: EntityId
   val localStatements: List[LocalStatement]
   def withLocalStatement(prec: PropertyRecord, literal: LiteralValue, qs: List[Qualifier]): Entity
+  def localStatementsByPropId(propId: PropertyId) = {
+    localStatements.filter(_.propertyRecord.id == propId)
+  }
 }
 
 case class ItemId(id: String, iri: IRI) extends EntityId

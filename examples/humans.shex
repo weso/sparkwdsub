@@ -1,0 +1,8 @@
+prefix wde: <http://www.wikidata.org/entity/>
+
+# Defines humans in Wikidata
+Start = @<Human>
+
+<Human> EXTRA wde:P31 {
+ wde:P31 [ wde:Q5 ]
+}

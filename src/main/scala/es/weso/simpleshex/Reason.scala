@@ -16,5 +16,11 @@ case class NoMatch(bag: Bag[(PropertyId,ShapeLabel)], rbe: Rbe[(PropertyId, Shap
 case class NoValueValueSet(value: Value, valueSet: List[ValueSetValue]) extends Reason
 case class NoStringDatatype(value: Value) extends Reason
 case class ErrorsMatching(es: List[Reason]) extends Reason
-case class CardinalityError(count: Int, min: Int, max: IntOrUnbounded) extends Reason
+case class CardinalityError(p: PropertyId, count: Int, min: Int, max: IntOrUnbounded) extends Reason
 case class WaitingForFailed(es: Set[(Value, PropertyId, ShapeLabel)]) extends Reason
+case class MatchNot(bag: Bag[(PropertyId,ShapeLabel)], rbe: Rbe[(PropertyId, ShapeLabel)]) extends Reason
+case class ShapeOr_AllFailed(es: List[Reason]) extends Reason
+case class NotImplemented(msg: String) extends Reason
+case class NotAllowedNotInExtra(notAllowed: List[(PropertyId, Int)]) extends Reason
+case class FailedPropsNotExtra(ps: Set[(PropertyId, ShapeLabel)]) extends Reason
+case class NullEntity(fromLabel: ShapeLabel) extends Reason

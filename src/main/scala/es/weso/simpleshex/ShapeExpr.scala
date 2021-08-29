@@ -13,9 +13,11 @@ sealed abstract class ShapeExpr extends Product with Serializable {
 
  def dependsOn(): Set[ShapeLabel] = this match {
    case s: ShapeRef => Set(s.label)
-   case s: Shape => s.expression.dependsOn
+   case s: Shape => s.expression match {
+     case None => Set()
+     case Some(te) => te.dependsOn()
+   }
    case e: NodeConstraint => Set()
-   case EmptyExpr => Set() 
    case sand: ShapeAnd => sand.exprs.map(_.dependsOn).toSet.flatten
    case sor: ShapeOr => sor.exprs.map(_.dependsOn).toSet.flatten
    case sn: ShapeNot => sn.shapeExpr.dependsOn
@@ -27,8 +29,12 @@ sealed abstract class ShapeExpr extends Product with Serializable {
   this match {
     case _: ShapeRef => empty
     case _: NodeConstraint => empty
-    case Shape(_,tripleExpr) => tripleExpr.rbe
-    case EmptyExpr => empty
+    case s: Shape => s.expression match {
+      case None => empty
+      case Some(te) => 
+        // TODO: Extend with extras?
+        te.rbe
+    }
     case _ => empty // TODO!!
    }
   }
@@ -37,35 +43,94 @@ sealed abstract class ShapeExpr extends Product with Serializable {
 
   private lazy val checker = IntervalChecker(rbe)
 
-  val tripleConstraints: List[TripleConstraintRef] = this match {
-    case _: ShapeRef => List()
-    case Shape(_,tripleExpr) => tripleExpr match {
-      case t: TripleConstraintRef => List(t) 
-      case t: TripleConstraintLocal => List()
-      case eo: EachOf => eo.exprs.map(_.tripleConstraints).flatten
-      case oo: OneOf => oo.exprs.map(_.tripleConstraints).flatten
-      case _ => List()
+  def tripleConstraints(schema: Schema): List[TripleConstraintRef] = 
+   this match {
+    case sr: ShapeRef => schema.get(sr.label) match {
+      case None => List()
+      case Some(se) => se.tripleConstraints(schema)
     }
-      // tripleExpr.tripleConstraints
+    case s: Shape => s.expression match {
+      case None => List()
+      case Some(te) => te match {
+       case t: TripleConstraintRef => List(t) 
+       case t: TripleConstraintLocal => List()
+       case eo: EachOf => eo.exprs.map(_.tripleConstraints).flatten
+       case oo: OneOf => oo.exprs.map(_.tripleConstraints).flatten
+       case _ => List()
+      }
+    }
     case _: NodeConstraint => List()
     case _ => List()
   }
 
-  def checkNeighs(bag: Bag[(PropertyId,ShapeLabel)]): Either[Reason, Unit] =
-     checker.check(bag,true) match {
-       case Left(es) => Left(NoMatch(bag,rbe,es))
-       case Right(_) => Right(())
-     } 
+  def checkNeighs(
+    bag: Bag[(PropertyId,ShapeLabel)],
+    failed: Set[(PropertyId, ShapeLabel)],
+    schema: Schema
+    ): Either[Reason, Unit] =
+    this match {
+      case s: Shape => {
+       checker.check(bag,s.closed) match {
+        case Left(es) => Left(NoMatch(bag,rbe,es))
+        case Right(_) => {
+          // check that all failed properties are in Extra
+          val failedPropsNotExtra = failed.filter{ case (p,_) => !s.extra.contains(p) }
+          if (failedPropsNotExtra.nonEmpty) {
+           Left(FailedPropsNotExtra(failedPropsNotExtra))
+          } else Right(())
+        }
+       } 
+      }
+      case ns: ShapeNot => {
+        ns.shapeExpr.checkNeighs(bag, failed, schema) match {
+         case Left(_) => Right(())
+         case Right(_) => Left(MatchNot(bag, rbe))
+        }
+      }
+      case sa: ShapeAnd => {
+        val es = sa.exprs.map(_.checkNeighs(bag, failed, schema))
+        val errs = es.collect { case Left(err) => err }
+        if (errs.nonEmpty) Left(ErrorsMatching(errs))
+        else Right(())
+      }
+      case so: ShapeOr => {
+        // TODO: Review case where neighs pass with one shape and fail locally with another, 
+        // but the opposite happens and the overall result passes...
+        val es = so.exprs.map(_.checkNeighs(bag, failed, schema))
+        if (es.filter(_.isRight).nonEmpty) Right(())
+        else Left(ShapeOr_AllFailed(es.collect{ case Left(err) => err}))
+      }
+      case nc: NodeConstraint => Right(())
+      case sr: ShapeRef => schema.get(sr.label) match {
+        case None => Left(ShapeNotFound(sr.label, schema))
+        case Some(se) => se.checkNeighs(bag,failed,schema)
+      }
+    }
 
   def checkLocal(
     entity: Entity, 
-    fromLabel: ShapeLabel
+    fromLabel: ShapeLabel,
+    schema: Schema
    ): Either[Reason, Set[ShapeLabel]] = {
     val result: Either[Reason,Set[ShapeLabel]] = this match {
-     case ShapeRef(label) => Right(Set(label))
-     case Shape(_,te) => te.checkLocal(entity, fromLabel)
-      case vs: ValueSet => vs.matchLocal(entity).map(_ => Set()) 
-      case StringDatatype => entity match {
+    case ShapeRef(label) => schema.get(label) match {
+      case None => Left(ShapeNotFound(label, schema))
+      case Some(se) => {
+        se.checkLocal(entity,fromLabel,schema)
+      }
+    }
+    case s: Shape => s.expression match {
+     case None => Right(Set())
+     case Some(te) => {
+      println(s"""|CheckLocal................
+                  |TripleExpr: $te
+                  |""".stripMargin) 
+      te.checkLocal(entity, fromLabel, s.closed, s.extra)
+     }
+      
+    }  
+    case vs: ValueSet => vs.matchLocal(entity).map(_ => Set()) 
+    case StringDatatype => entity match {
 //        case _: StringValue => Right(Set())
         case _ => Left(NoStringDatatype(entity))
       }
@@ -76,21 +141,36 @@ sealed abstract class ShapeExpr extends Product with Serializable {
      // println(s"checkLocal(se: ${this}, entity: $entity,fromLabel: $fromLabel)=${result}")
      result
   }   
-
-
  }
 
-case class ShapeAnd(id: Option[ShapeLabel], exprs: List[ShapeExpr]) extends ShapeExpr
-case class ShapeOr(id: Option[ShapeLabel], exprs: List[ShapeExpr]) extends ShapeExpr
-case class ShapeNot(id: Option[ShapeLabel], shapeExpr: ShapeExpr) extends ShapeExpr
-case class ShapeRef(label: ShapeLabel) extends ShapeExpr 
-case class Shape(id: Option[ShapeLabel], expression: TripleExpr) extends ShapeExpr 
-case object EmptyExpr extends ShapeExpr
+case class ShapeAnd(
+  id: Option[ShapeLabel], 
+  exprs: List[ShapeExpr]) extends ShapeExpr
+case class ShapeOr(
+  id: Option[ShapeLabel], 
+  exprs: List[ShapeExpr]) extends ShapeExpr
+case class ShapeNot(
+  id: Option[ShapeLabel], 
+  shapeExpr: ShapeExpr) extends ShapeExpr
+case class ShapeRef(
+  label: ShapeLabel
+  ) extends ShapeExpr 
+case class Shape(
+  id: Option[ShapeLabel], 
+  closed: Boolean,
+  extra: List[PropertyId], // TODO: Extend extras to handle Paths?
+  expression: Option[TripleExpr]
+) extends ShapeExpr 
 
 sealed abstract class NodeConstraint extends ShapeExpr {
   def matchLocal(value: Value): Either[Reason, Unit]
 }
 
+case object EmptyExpr extends NodeConstraint {
+  override def matchLocal(
+    value: Value
+    ): Either[Reason,Unit] = Right(())
+}
 
 case class ValueSet(id: Option[ShapeLabel], values: List[ValueSetValue]) extends NodeConstraint {
   override def matchLocal(value: Value) = {
