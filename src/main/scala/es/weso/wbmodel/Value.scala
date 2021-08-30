@@ -26,6 +26,15 @@ sealed abstract trait Value extends Product with Serializable
 sealed abstract class EntityId extends Value {
   def id: String
   def iri: IRI
+} 
+object EntityId {
+  def fromIri(iri: IRI): EntityId = {
+    val (name,base) = Utils.splitIri(iri)
+    name(0) match {
+      case 'P' => PropertyId(name,iri)
+      case 'Q' => ItemId(name, iri)
+    }
+  }
 }
 
 case class PropertyId(
@@ -103,14 +112,21 @@ sealed abstract class LiteralValue extends Value
 case class StringValue(
     str: String
     ) extends LiteralValue {
-    override def toString = s"$str"
-  }
+  override def toString = s"$str"
+}
 
 case class DateValue(
     date: String, 
     ) extends LiteralValue {
-    override def toString = s"$date"
-  }
+  override def toString = s"$date"
+}
+
+case class IRIValue(
+    iri: IRI, 
+    ) extends LiteralValue {
+  override def toString = s"${iri.getLexicalForm}"
+}
+
 
 case class Qualifier(propertyId: PropertyId, value: Entity) {
     override def toString = s"$propertyId:$value"

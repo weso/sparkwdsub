@@ -105,7 +105,7 @@ object SparkWDSub extends CommandIOApp (
            schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
          )
 
-    if (verbose) {         
+    //if (verbose) {         
     println(s"""|-------------------------------
                 |End of validation
                 |-------------------------------""".stripMargin)   
@@ -117,7 +117,7 @@ object SparkWDSub extends CommandIOApp (
     .map(getIdShapes(_))
     .collect()
     .foreach(println(_))
-    }
+    // }
 
     sc.stop()
 

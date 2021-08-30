@@ -122,9 +122,9 @@ sealed abstract class ShapeExpr extends Product with Serializable {
     case s: Shape => s.expression match {
      case None => Right(Set())
      case Some(te) => {
-      println(s"""|CheckLocal................
+      /*println(s"""|CheckLocal................
                   |TripleExpr: $te
-                  |""".stripMargin) 
+                  |""".stripMargin)  */
       te.checkLocal(entity, fromLabel, s.closed, s.extra)
      }
       
@@ -175,9 +175,10 @@ case object EmptyExpr extends NodeConstraint {
 case class ValueSet(id: Option[ShapeLabel], values: List[ValueSetValue]) extends NodeConstraint {
   override def matchLocal(value: Value) = {
     val found = value match {
-     case e: Entity => values.collect { case i: IRIValue => i.iri }.contains(e.entityId.iri)
-     case e: EntityId => values.collect { case i: IRIValue => i.iri }.contains(e.iri)
-//     case s: StringValue => values.collect { case s: StringValue => s.str }.contains(s)
+     case e: Entity => values.collect { case ve: EntityIdValue => ve.id }.contains(e.entityId)
+     case e: EntityId => values.collect { case ve: EntityIdValue => ve.id }.contains(e)
+     case i: IRIValue => values.collect { case iv: IRIValueSetValue => iv.iri }.contains(i.iri)
+     case s: StringValue => values.collect { case s: StringValue => s.str }.contains(s.str)
      case _ => false
     }
     if (found) Right(())
@@ -194,5 +195,9 @@ case object StringDatatype extends NodeConstraint {
 }
 
 sealed trait ValueSetValue 
-sealed trait ObjectValue extends ValueSetValue
-case class IRIValue(iri: IRI) extends ObjectValue
+sealed trait NonLocalValue extends ValueSetValue
+sealed trait LocalValue extends ValueSetValue
+
+case class EntityIdValue(id: EntityId) extends NonLocalValue
+case class IRIValueSetValue(iri: IRI) extends LocalValue
+case class StringValue(str: String) extends LocalValue

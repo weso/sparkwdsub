@@ -4,5 +4,6 @@ prefix wde: <http://www.wikidata.org/entity/>
 Start = @<Human>
 
 <Human> EXTRA wde:P31 {
- wde:P31 [ wde:Q5 ]
+ wde:P31 @<HumanCode>
 }
+<HumanCode> [ wde:Q5 ]

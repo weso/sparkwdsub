@@ -8,7 +8,12 @@ import es.weso.rbe.interval.Unbounded
 import es.weso.rbe.interval.IntLimit
 import es.weso.wbmodel._
 
-object ShEx2SimpleShEx {
+case class ConvertOptions(siteIri: IRI)
+object ConvertOptions {
+  val default = ConvertOptions(IRI("http://www.wikidata.org/entity/"))
+}
+
+case class ShEx2SimpleShEx(convertOptions: ConvertOptions) {
 
   /**
    * Convert a ShEx schema to a WShEx
@@ -78,9 +83,18 @@ object ShEx2SimpleShEx {
     ): Either[ConvertError, List[ValueSetValue]] =
     values.map(convertValueSetValue).sequence
 
-  private def convertValueSetValue(value: shex.ValueSetValue): Either[ConvertError, ValueSetValue] = 
+  private def convertValueSetValue(
+    value: shex.ValueSetValue
+    ): Either[ConvertError, ValueSetValue] = 
     value match {
-      case shex.IRIValue(i) => IRIValue(i).asRight
+      case shex.IRIValue(i) => { 
+        val (name1,base1) = Utils.splitIri(i)
+        if (base1 == convertOptions.siteIri) {
+          Right(EntityIdValue(EntityId.fromIri(i)))
+        } else {
+          Right(IRIValueSetValue(i))
+        }
+      }
       case _ => UnsupportedValueSetValue(value).asLeft
     }
 
@@ -106,7 +120,7 @@ object ShEx2SimpleShEx {
   private def convertTripleExpr(te: shex.TripleExpr): Either[ConvertError, TripleExpr] = 
    te match {
     case eo: shex.EachOf => {
-      // TODO: generalize to have triple expressions
+      // TODO: generalize to handle triple expressions
      for { 
       tes <- eo.expressions
             .map(convertTripleExpr)
@@ -116,7 +130,7 @@ object ShEx2SimpleShEx {
      } yield EachOf(tcs)
     }
     case oo: shex.OneOf => {
-      // TODO: generalize to have triple expressions
+      // TODO: generalize to handle triple expressions
      for { 
       tes <- oo.expressions
             .map(convertTripleExpr)
@@ -172,4 +186,13 @@ object ShEx2SimpleShEx {
       case shex.Start => Start
     }
 
+}
+
+object ShEx2SimpleShEx {
+  def apply(
+    convertOptions: ConvertOptions = ConvertOptions.default
+    ): ShEx2SimpleShEx = {
+    // Note: I think 'new' is needed to avoid infinite loop  
+    new ShEx2SimpleShEx(convertOptions)
+  }
 }

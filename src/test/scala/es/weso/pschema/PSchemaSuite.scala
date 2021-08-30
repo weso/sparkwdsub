@@ -102,7 +102,7 @@ def testCase(
     val schema = Schema(
      Map(
        IRILabel(IRI("Start")) -> Shape(None,false,List(),Some(TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)))),
-       IRILabel(IRI("Human")) -> ValueSet(None,List(IRIValue(IRI("http://www.wikidata.org/entity/Q5")))) 
+       IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5"))))) 
      ))
     val expected = sort(List(
         ("Q5", List("Human"), List("Start")),

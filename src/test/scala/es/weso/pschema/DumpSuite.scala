@@ -30,6 +30,7 @@ def testCase(
    dumpStr: String, 
    schemaStr: String,
    expected: List[(String, List[String], List[String])],
+   verbose: Boolean = false,
    maxIterations: Int = Int.MaxValue,
   )(implicit loc: munit.Location): Unit = {
  test(name) { 
@@ -41,7 +42,7 @@ def testCase(
     schema => {
         val validatedGraph = 
          PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-          graph, initialLabel, maxIterations)(
+          graph, initialLabel, maxIterations,verbose)(
           schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
         )
 
@@ -89,7 +90,7 @@ private def sort(
    """|prefix wde: <http://www.wikidata.org/entity/>
       |
       |Start = @<City>
-      |<City> {
+      |<City> EXTRA wde:P31 {
       | wde:P31 @<CityCode> 
       |}
       |<CityCode> [ wde:Q515 ]
@@ -102,7 +103,7 @@ private def sort(
      ("Q75", List(), List("Start")),
      ("Q515", List("CityCode"), List("Start"))
      ))
-  testCase("3lines",dumpStr,schemaStr,expected)
+  testCase("3lines",dumpStr,schemaStr,expected, true)
  }
 
 }

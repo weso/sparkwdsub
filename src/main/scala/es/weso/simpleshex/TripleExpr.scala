@@ -83,9 +83,9 @@ sealed abstract class TripleExpr extends Product with Serializable {
         combineChecks(ts.map(t => t.checkLocalOpen(entity,fromLabel))
       )*/ 
    }
-   println(s"""|checkLocal($entity,$fromLabel,$this)=
+   /* println(s"""|checkLocal($entity,$fromLabel,$this)=
                |$cl
-               |""".stripMargin)
+               |""".stripMargin) */
    cl
   }
 
