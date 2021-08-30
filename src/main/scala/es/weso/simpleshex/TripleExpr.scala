@@ -52,18 +52,38 @@ sealed abstract class TripleExpr extends Product with Serializable {
    else {
     val cl: Either[Reason,Set[ShapeLabel]] = this match {
      case tc: TripleConstraint => {
-       tc.checkLocalOpen(entity,fromLabel) match {
+       val clo: Either[Reason, Set[ShapeLabel]] = 
+        tc.checkLocalOpen(entity,fromLabel) match {
          case Left(err) => Left(err)
          case Right(Left(s)) => Right(s)
          case Right(Right((p,matches,failed))) => 
           if (failed == 0 || extra.contains(p)) Right(Set())
           else Left(NotAllowedNotInExtra(List((p,failed))))
        }
+       /* println(s"""|checkLocal for tripleConstraint
+                   |tripleConstraint: $tc
+                   |entity: $entity
+                   |fromLabel: $fromLabel
+                   |checkLocalOpen: ${tc.checkLocalOpen(entity,fromLabel)}
+                   |result: $clo
+                   |""".stripMargin) */
+       clo
      } 
      case EachOf(Nil) => Right(Set())
      case EachOf(ts) => {
-        val results = ts.map(_.checkLocalOpen(entity,fromLabel)).sequence.map(_.sequence)
-        results match {
+       val results = 
+          ts
+          .map(_.checkLocalOpen(entity,fromLabel))
+          .sequence
+          .map(_.sequence)
+
+       /* println(s"""|checkLocal eachOfs
+                   |ts: $ts
+                   |results of checkLocal eachOfs: $results
+                   |""".stripMargin) */
+          
+
+       results match {
          case Left(err) => Left(err)
          case Right(e) => e match {
             case Left(s) => Right(s)
@@ -124,9 +144,22 @@ sealed abstract class TripleConstraint extends TripleExpr with Serializable with
        case tr: TripleConstraintRef => Right(Left(Set(fromLabel)))
        case tl: TripleConstraintLocal => {
         val found = entity.localStatementsByPropId(tl.property)
+/*        println(s"""|Local statements: ${entity.localStatements}
+                    |Property: ${tl.property}
+                    |found: $found
+                    |""".stripMargin) */
         val matches: Int = 
-          found.map(s => tl.value.matchLocal(s.literal)).collect { case Right(()) => () }.size
+          found.map(s => 
+            tl.value
+            .matchLocal(s.literal))
+            .collect { case Right(()) => () }.size
         val failed = found.size - matches
+       /* println(s"""|Local statements: ${entity.localStatements}
+                    |Property: ${tl.property}
+                    |found: $found
+                    |matches: $matches
+                    |failed: $failed
+                    |""".stripMargin) */
         if (min <= matches && max >= matches) Right(Right(tl.property,matches,failed))
          else Left(CardinalityError(tl.property,matches,min,max))
        }

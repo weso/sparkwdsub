@@ -75,13 +75,18 @@ case class ShEx2SimpleShEx(convertOptions: ConvertOptions) {
      case _ => UnsupportedNodeConstraint(nc).asLeft
    }
 
-  private def convertValueSet(id: Option[ShapeLabel], values: List[shex.ValueSetValue]): Either[ConvertError, ValueSet] = 
-    convertValueSetValues(values).map(vs => ValueSet(id, vs))
+  private def convertValueSet(
+    id: Option[ShapeLabel], 
+    values: List[shex.ValueSetValue]
+    ): Either[ConvertError, ValueSet] = 
+    convertValueSetValues(values)
+    .map(vs => ValueSet(id, vs))
 
   private def convertValueSetValues(
     values: List[shex.ValueSetValue]
     ): Either[ConvertError, List[ValueSetValue]] =
-    values.map(convertValueSetValue).sequence
+    values
+    .map(convertValueSetValue).sequence
 
   private def convertValueSetValue(
     value: shex.ValueSetValue
@@ -89,8 +94,13 @@ case class ShEx2SimpleShEx(convertOptions: ConvertOptions) {
     value match {
       case shex.IRIValue(i) => { 
         val (name1,base1) = Utils.splitIri(i)
-        if (base1 == convertOptions.siteIri) {
-          Right(EntityIdValue(EntityId.fromIri(i)))
+        /* println(s"""|convertValueSetValue:
+                    |name1: $name1
+                    |base1: $base1
+                    |siteIri: ${convertOptions.siteIri}
+                    |""".stripMargin) */
+        if (IRI(base1) == convertOptions.siteIri) {
+          Right(EntityIdValueSetValue(EntityId.fromIri(i)))
         } else {
           Right(IRIValueSetValue(i))
         }

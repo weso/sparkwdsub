@@ -12,7 +12,10 @@ import es.weso.graphxhelpers.GraphBuilder._
 import org.apache.spark.graphx.VertexRDD
 import es.weso.rbe.interval._
 import scala.collection.immutable.SortedSet
-import es.weso.rdf.nodes._
+import es.weso.rdf.nodes.{ 
+  Lang => _,
+  _
+}
 
 class ShapeExprSuite extends FunSuite {
   lazy val wdeStr = "http://www.wikidata.org/entity/"
@@ -20,9 +23,9 @@ class ShapeExprSuite extends FunSuite {
 
   test("checkLocal") {
     val q5Id = ItemId("Q5", wde + "Q5")
-    val q5 = Item(q5Id, 5L, "Human", wdeStr, List())
+    val q5 = Item(q5Id, 5L, Map(Lang("en") -> "Human"), Map(), Map(), wdeStr, List(), List())
     val q6Id = ItemId("Q6", wde + "Q6")
-    val q6 = Item(q6Id, 6L, "Researcher", wdeStr, List())
+    val q6 = Item(q6Id, 6L, Map(Lang("en") -> "Researcher"), Map(), Map(), wdeStr, List(), List())
     val p31 = PropertyRecord(PropertyId.fromIRI(wde + "P31"),31L)
     // val s1: Statement = LocalStatement(p31,q5Id,List())
     val q80Id = ItemId("Q80", wde + "Q80")

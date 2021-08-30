@@ -105,16 +105,25 @@ object SparkWDSub extends CommandIOApp (
            schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
          )
 
+    val subGraph = 
+      validatedGraph
+      .subgraph(filterEdges,filterVertices)
+
+    val result = 
+        graph2rdd(
+          subGraph
+          .mapVertices{ case (_,v) => v.value }
+          )
+    
+
+    // TODO. Serialize and write to output
+
     //if (verbose) {         
     println(s"""|-------------------------------
                 |End of validation
                 |-------------------------------""".stripMargin)   
-    println(s"Results: ${validatedGraph.triplets.count()} triples")
-    
-    validatedGraph
-    .vertices
-    .filter(containsValidShapes)
-    .map(getIdShapes(_))
+    println(s"Result:")
+    result
     .collect()
     .foreach(println(_))
     // }
@@ -122,6 +131,17 @@ object SparkWDSub extends CommandIOApp (
     sc.stop()
 
     ExitCode.Success
+  }
+
+  def graph2rdd(g: Graph[Entity,Statement]): RDD[String] = 
+    g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_))
+
+  def filterEdges(t: EdgeTriplet[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement]): Boolean = {
+    t.srcAttr.okShapes.nonEmpty
+  }
+
+  def filterVertices(id: VertexId, v: Shaped[Entity,ShapeLabel,Reason,PropertyId]): Boolean = {
+    v.okShapes.nonEmpty
   }
 
 

@@ -46,13 +46,14 @@ def testCase(
   schema: Schema,
   initialLabel: ShapeLabel,
   expected: List[(String, List[String], List[String])],
+  verbose: Boolean,
   maxIterations: Int = Int.MaxValue,
 )(implicit loc: munit.Location): Unit = {
  test(name) { 
   val graph = buildGraph(gb, spark.sparkContext)
   val validatedGraph = 
    PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
-     graph, initialLabel, maxIterations)(
+     graph, initialLabel, maxIterations, verbose)(
      schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
    )
 
@@ -76,6 +77,7 @@ def testCase(
   }
  }
 
+ /*
 {
    val graph = SampleSchemas.simpleGraph1
    val schema = SampleSchemas.schemaSimple
@@ -141,7 +143,7 @@ def testCase(
         )
    testCase("Simple recursion", gb, schema, IRILabel(IRI("Person")), expected)
   }
-
+*/
   {
    val gb: GraphBuilder[Entity,Statement] = for {
       name <- P(1, "name")
@@ -163,10 +165,13 @@ def testCase(
     }  
    val schema = Schema(
       Map(
-      IRILabel(IRI("Person")) -> Shape(None, false,List(), Some(EachOf(List(
-        TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
-        TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
-      ))))
+      IRILabel(IRI("Person")) -> 
+       Shape(None, false, List(), 
+        Some(EachOf(List(
+         TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
+         TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
+        )))
+       )
      ))
       
    val expected: List[(String,List[String], List[String])] = List(
@@ -176,7 +181,7 @@ def testCase(
         ("Q4", List(), List("Person"))
         )
    
-    testCase("Recursion person", gb,schema, IRILabel(IRI("Person")), expected)
+    testCase("Recursion person", gb,schema, IRILabel(IRI("Person")), expected, true)
   } 
 
 }

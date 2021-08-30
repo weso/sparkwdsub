@@ -6,6 +6,7 @@ import org.apache.spark.graphx._
 import cats.implicits._
 import cats._
 import es.weso.rdf.nodes._
+import org.wikidata.wdtk.datamodel.interfaces.DatatypeIdValue
 
 object Utils {
   
@@ -64,16 +65,22 @@ sealed abstract class Entity extends Value {
 
 case class ItemId(id: String, iri: IRI) extends EntityId
 
+case class Lang(code: String) extends AnyVal
+
 case class Item(
     itemId: ItemId, 
     vertexId: VertexId, 
-    label: String, 
+    labels: Map[Lang,String], 
+    descriptions: Map[Lang,String],
+    aliases: Map[Lang,String],
     siteIri: String = Value.siteDefault,
-    localStatements: List[LocalStatement] 
-    ) extends Entity {
+    localStatements: List[LocalStatement],
+    siteLinks: List[SiteLink]
+  ) extends Entity {
+
     lazy val entityId = itemId  
     def iri: IRI = IRI(siteIri + "/" + itemId.id)
-    override def toString = s"${itemId.id}(${itemId.iri.getLexicalForm})-$label@$vertexId"
+    override def toString = s"${itemId.id}(${itemId.iri.getLexicalForm})-${labels.get(Lang("en")).getOrElse("")}@$vertexId"
 
     override def withLocalStatement(
       prec: PropertyRecord, 
@@ -88,13 +95,16 @@ case class Item(
 case class Property(
     propertyId: PropertyId, 
     vertexId: VertexId, 
-    label: String, 
+    labels: Map[Lang,String], 
+    descriptions: Map[Lang,String],
+    aliases: Map[Lang,String],
     siteIri: String = Value.siteDefault,
-    localStatements: List[LocalStatement] 
+    localStatements: List[LocalStatement] = List(),
+    datatype: Datatype = Datatype.defaultDatatype
     ) extends Entity {
     lazy val entityId = propertyId
     def iri: IRI = IRI(siteIri + "/" + propertyId.id)
-    override def toString = s"${propertyId.id}-$label@$vertexId"
+    override def toString = s"${propertyId.id}-${labels.get(Lang("en")).getOrElse("")}@$vertexId"
 
     lazy val prec: PropertyRecord = PropertyRecord(propertyId, vertexId)
 
@@ -161,10 +171,20 @@ case class LocalStatement(
   override def toString = s"$propertyRecord - $literal${if (qualifiers.isEmpty) "" else s"{{" + qualifiers.map(_.toString).mkString(",") + "}}" }"   
 }
 
-object Statement {
+object LocalStatement {
     implicit val orderingById: Ordering[Statement] = Ordering.by(_.propertyRecord.id)
 }
 
+case class SiteLink(
+  title: String,
+  siteKey: String,
+  badges: List[ItemId]
+)
+
+case class Datatype(name: String) extends AnyVal 
+object Datatype {
+  lazy val defaultDatatype = Datatype(DatatypeIdValue.DT_ITEM)
+}
 
 object Value {
 
@@ -199,16 +219,19 @@ object Value {
       id <- getIdUpdate
     } yield {
       val qid = "Q" + num
-      Item(ItemId(qid, iri = mkSite(site, qid)), id, label, site, List())
+      Item(ItemId(qid, iri = mkSite(site, qid)), id, Map(Lang("en") -> label), Map(), Map(), site, List(), List())
     }
 
   def mkSite(base: String, localName: String) = IRI(base + "/" + localName)
 
-  def P(num: Int, label: String, site: String = siteDefault): Builder[Property] = for {
+  def P(num: Int, label: String, site: String = siteDefault, datatype: Datatype = Datatype.defaultDatatype): Builder[Property] = for {
       id <- getIdUpdate
   } yield {
     val pid = "P" + num
-    Property(PropertyId(pid, mkSite(site,pid)), id, label, site, List())
+    Property(
+      PropertyId(pid, mkSite(site,pid)), 
+      id, Map(Lang("en") -> label), Map(), Map(), site, List()
+    )
   }
 
   def Date(date: String): DateValue = 

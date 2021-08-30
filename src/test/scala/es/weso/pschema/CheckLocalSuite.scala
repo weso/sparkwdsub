@@ -12,7 +12,7 @@ import es.weso.graphxhelpers.GraphBuilder._
 import org.apache.spark.graphx.VertexRDD
 import es.weso.rbe.interval._
 import scala.collection.immutable.SortedSet
-import es.weso.rdf.nodes._
+import es.weso.rdf.nodes.{Lang => _, _}
 import DumpUtils._
 import org.apache.spark.rdd.RDD
 
@@ -33,7 +33,11 @@ class CheckLocalSuite extends FunSuite {
        schema.get(label) match {
          case None => fail(s"Not found label $label")
          case Some(se) => se.checkLocal(entity,IRILabel(IRI("fromLabel")),schema).fold(
-          err => fail(s"Error checking local($se,$entity,$fromLabel:$err"),
+          err => fail(s"""|Error checking local
+                          |Entity: $se,$entity
+                          |fromLabel: $fromLabel
+                          |Err: $err
+                          |""".stripMargin),
           s => assertEquals(s,expected)
          )
        }
@@ -57,7 +61,13 @@ class CheckLocalSuite extends FunSuite {
   val entity = 
     Item(
       ItemId("Q515", IRI("http://www.wikidata.org/entity/Q515")), 
-      515L, "CityCode", "http://www.wikidata.org/entity/", List())
+      515L, 
+      Map(Lang("en") -> "CityCode"), 
+      Map(), 
+      Map(), 
+      "http://www.wikidata.org/entity/", 
+      List(), 
+      List())
   testCase("checkLocal valueSet", cityCode, entity, schemaStr, fromLabel, Set[ShapeLabel]())
 }
 

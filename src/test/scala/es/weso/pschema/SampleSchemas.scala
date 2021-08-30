@@ -20,13 +20,13 @@ object SampleSchemas {
         TripleConstraintRef(Pid(17), ShapeRef(IRILabel(IRI("Country"))),1,IntLimit(1))
       )))),
       IRILabel(IRI("Country")) -> EmptyExpr,
-      IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))))
+      IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))))
     )
   )
 
   val schemaSimple = Schema(
      Map(
-       IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5"))))) 
+       IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5"))))) 
      ), 
      start = Some(
        Shape(None, false,List(), Some(TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1))))

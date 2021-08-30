@@ -44,13 +44,13 @@ object DumpUtils {
      case id: ItemDocument => { 
       val label = Option(id.findLabel("en")).getOrElse("")
       (vertexId, 
-       Item(ItemId(id.getEntityId().getId(), IRI(id.getEntityId().getIri())), vertexId, label, id.getEntityId().getSiteIri(), List())
+       Item(ItemId(id.getEntityId().getId(), IRI(id.getEntityId().getIri())), vertexId, Map(Lang("en") -> label), Map(), Map(), id.getEntityId().getSiteIri(), List(), List())
       ) 
       }
      case pd: PropertyDocument => {
       val label = Option(pd.findLabel("en")).getOrElse("")
       (vertexId, 
-       Property(PropertyId(pd.getEntityId().getId(), IRI(pd.getEntityId().getIri())), vertexId, label, pd.getEntityId().getSiteIri(), List())
+       Property(PropertyId(pd.getEntityId().getId(), IRI(pd.getEntityId().getIri())), vertexId, Map(Lang("en") -> label), Map(), Map(), pd.getEntityId().getSiteIri(), List())
       )
      }
     }

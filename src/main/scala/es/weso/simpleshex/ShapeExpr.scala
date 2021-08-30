@@ -122,9 +122,9 @@ sealed abstract class ShapeExpr extends Product with Serializable {
     case s: Shape => s.expression match {
      case None => Right(Set())
      case Some(te) => {
-      /*println(s"""|CheckLocal................
+      /* println(s"""|CheckLocal................
                   |TripleExpr: $te
-                  |""".stripMargin)  */
+                  |""".stripMargin)   */
       te.checkLocal(entity, fromLabel, s.closed, s.extra)
      }
       
@@ -138,7 +138,13 @@ sealed abstract class ShapeExpr extends Product with Serializable {
       // TODO: ShapeAnd, ShapeOR, ShapeNot...
       case _ => Right(Set())
      }
-     // println(s"checkLocal(se: ${this}, entity: $entity,fromLabel: $fromLabel)=${result}")
+/*     println(s"""|checkLocal with
+                 | se: ${this}
+                 | entity: $entity
+                 | entity local statememts: ${entity.localStatements.mkString(",")}
+                 | fromLabel: $fromLabel
+                 | result: ${result}
+                 |""".stripMargin) */
      result
   }   
  }
@@ -175,10 +181,10 @@ case object EmptyExpr extends NodeConstraint {
 case class ValueSet(id: Option[ShapeLabel], values: List[ValueSetValue]) extends NodeConstraint {
   override def matchLocal(value: Value) = {
     val found = value match {
-     case e: Entity => values.collect { case ve: EntityIdValue => ve.id }.contains(e.entityId)
-     case e: EntityId => values.collect { case ve: EntityIdValue => ve.id }.contains(e)
+     case e: Entity => values.collect { case ve: EntityIdValueSetValue => ve.id }.contains(e.entityId)
+     case e: EntityId => values.collect { case ve: EntityIdValueSetValue => ve.id }.contains(e)
      case i: IRIValue => values.collect { case iv: IRIValueSetValue => iv.iri }.contains(i.iri)
-     case s: StringValue => values.collect { case s: StringValue => s.str }.contains(s.str)
+     case s: StringValue => values.collect { case s: StringValueSetValue => s.str }.contains(s.str)
      case _ => false
     }
     if (found) Right(())
@@ -188,16 +194,25 @@ case class ValueSet(id: Option[ShapeLabel], values: List[ValueSetValue]) extends
 
 
 case object StringDatatype extends NodeConstraint {
-  override def matchLocal(value: Value) = value match {
+  override def matchLocal(value: Value) = {
+    val result = value match {
     case _: StringValue => ().asRight
     case _ => NoStringDatatype(value).asLeft
   }
+ /* println(s"""|matchLocal
+              |nodeConstraint: $this
+              |Value: $value
+              |Valuetype: ${value.getClass().getCanonicalName()}
+              |Result: $result
+              |""".stripMargin) */
+  result
+ }
 }
 
 sealed trait ValueSetValue 
-sealed trait NonLocalValue extends ValueSetValue
-sealed trait LocalValue extends ValueSetValue
+sealed trait NonLocalValueSetValue extends ValueSetValue
+sealed trait LocalValueSetValue extends ValueSetValue
 
-case class EntityIdValue(id: EntityId) extends NonLocalValue
-case class IRIValueSetValue(iri: IRI) extends LocalValue
-case class StringValue(str: String) extends LocalValue
+case class EntityIdValueSetValue(id: EntityId) extends NonLocalValueSetValue
+case class IRIValueSetValue(iri: IRI) extends LocalValueSetValue
+case class StringValueSetValue(str: String) extends LocalValueSetValue
