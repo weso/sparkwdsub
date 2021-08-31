@@ -30,14 +30,9 @@ import org.wikidata.wdtk.datamodel.interfaces.{
 import es.weso.rbe.interval.IntLimit
 import es.weso.wbmodel.DumpUtils._
 import java.nio.file.Path
+import java.nio.file.Paths
 
-
-
-object SparkWDSub extends CommandIOApp (
-  name = "sparkwdsub",
-  header = "Wikidata subsetting using SPARK and ShEx",
-  version = BuildInfo.version
-) {
+object Main {
   
   val defaultSite: String = "http://www.wikidata.org/entity/"
   val defaultLoggingLevel = "ERROR"
@@ -65,11 +60,27 @@ object SparkWDSub extends CommandIOApp (
       (filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel).mapN(Dump)
   }  
 
-  override def main: Opts[IO[ExitCode]] = 
-    dump.map {
+  val dumpCommand = Command(
+    name = "dump",
+    header = "create dumps using ShEx based traversal",
+  ) {
+    dump
+  }
+
+  def main(args: Array[String]): Unit = {
+    /* dumpCommand.parse(args).map {
       case Dump(filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel) => 
         doDump(filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel)
-    } 
+    }  */
+    if (args.size != 3) {
+      println(s"Usage: sparkwdsub dumpFilePath schemaPath outResultPath")
+    }
+    val filePath = Paths.get(args(0))
+    val schemaPath = Paths.get(args(1))
+    val outPath = Paths.get(args(2))
+        
+    doDump(filePath,schemaPath,Some(outPath),defaultSite,defaultMaxIterations,false,"ERROR")
+  }
     
   def doDump(
     dumpFilePath: Path, 
@@ -78,9 +89,9 @@ object SparkWDSub extends CommandIOApp (
     site: String, 
     maxIterations: Int,
     verbose: Boolean,
-    logLevel: String): IO[ExitCode] = IO {
+    logLevel: String): Unit = {
 
-    val master = "local"
+    val master = "local[*]"
     val partitions = 1
 
     lazy val spark: SparkSession = SparkSession
@@ -91,6 +102,7 @@ object SparkWDSub extends CommandIOApp (
       .getOrCreate()
   
     lazy val sc = spark.sparkContext
+    
     sc.setLogLevel(logLevel) 
 
     lazy val lineParser = LineParser(site)
@@ -129,8 +141,6 @@ object SparkWDSub extends CommandIOApp (
     // }
 
     sc.stop()
-
-    ExitCode.Success
   }
 
   def graph2rdd(g: Graph[Entity,Statement]): RDD[String] = 

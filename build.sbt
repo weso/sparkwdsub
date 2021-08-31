@@ -9,6 +9,7 @@ val Java11 = "adopt@1.11"
 lazy val wdsubVersion          = "0.0.16"
 
 // Other dependencies
+lazy val catsVersion           = "2.6.1"
 lazy val declineVersion        = "2.1.0"
 lazy val munitVersion          = "0.7.27"
 lazy val munitEffectVersion    = "1.0.5"
@@ -17,15 +18,17 @@ lazy val jacksonVersion        = "2.12.2"
 lazy val sparkFastTestsVersion = "1.0.0"
 
 // Other dependencies 
-lazy val wdsub             = "es.weso"                    %% "wdsub"               % wdsubVersion
-lazy val decline           = "com.monovore"               %% "decline"             % declineVersion
-lazy val declineEffect     = "com.monovore"               %% "decline-effect"      % declineVersion
+lazy val catsCore          = "org.typelevel"                %% "cats-core"          % catsVersion
+lazy val catsKernel        = "org.typelevel"                %% "cats-kernel"        % catsVersion
+lazy val wdsub             = "es.weso"                      %% "wdsub"               % wdsubVersion
+lazy val decline           = "com.monovore"                 %% "decline"             % declineVersion
+lazy val declineEffect     = "com.monovore"                 %% "decline-effect"      % declineVersion
 lazy val jackson           = "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion
-lazy val munit             = "org.scalameta"              %% "munit"               % munitVersion
-lazy val munitEffect       = "org.typelevel"              %% "munit-cats-effect-3" % munitEffectVersion
-lazy val sparkSql          = "org.apache.spark"           %% "spark-sql"           % sparkVersion
-lazy val sparkGraphx       = "org.apache.spark"           %% "spark-graphx"        % sparkVersion
-lazy val sparkFast         = "com.github.mrpowers"        %% "spark-fast-tests"    % sparkFastTestsVersion
+lazy val munit             = "org.scalameta"                %% "munit"               % munitVersion
+lazy val munitEffect       = "org.typelevel"                %% "munit-cats-effect-3" % munitEffectVersion
+lazy val sparkSql          = "org.apache.spark"             %% "spark-sql"           % sparkVersion
+lazy val sparkGraphx       = "org.apache.spark"             %% "spark-graphx"        % sparkVersion
+lazy val sparkFast         = "com.github.mrpowers"          %% "spark-fast-tests"    % sparkFastTestsVersion
 
 
 lazy val MUnitFramework = new TestFramework("munit.Framework")
@@ -45,11 +48,20 @@ lazy val sparkWdsubRoot = project
     LauncherJarPlugin
     )
     .enablePlugins(BuildInfoPlugin)
-  .settings(dockerSettings)
+  .settings(
+    assembly / mainClass := Some("es.weso.sparkwdsub.Main"),
+    assembly / assemblyJarName := "wdsub.jar",
+    ThisBuild / assemblyMergeStrategy := {
+     case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+     case x => MergeStrategy.first
+    },
+    dockerSettings
+    )
   .aggregate()
   .dependsOn()
   .settings(
     libraryDependencies ++= Seq(
+      catsCore, catsKernel,
       wdsub, 
       sparkSql, 
       sparkGraphx, 
