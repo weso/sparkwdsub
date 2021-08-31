@@ -31,6 +31,7 @@ import es.weso.rbe.interval.IntLimit
 import es.weso.wbmodel.DumpUtils._
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.apache.hadoop.mapred.FileAlreadyExistsException
 
 object Main {
   
@@ -136,19 +137,20 @@ object Main {
     maybeOutPath match {
       case None => println(s"No output path")
       case Some(outPath) => {
-        result.saveAsTextFile(outPath.toFile().getAbsolutePath())
+        try {
+         result.saveAsTextFile(
+          outPath.toFile().getAbsolutePath())
+        } catch {
+          case _: FileAlreadyExistsException => println(s"Error writing to file: ${outPath}. File already exists")
+          case exc: Throwable => println(s"Error writing File: ${exc.getMessage()}")
+        }
       }
     }
     
-    if (verbose) {         
-     println(s"""|-------------------------------
+    println(s"""|-------------------------------
                 |End of validation
                 |-------------------------------""".stripMargin)   
-     println(s"Result:")
-     result
-     .collect()
-     .foreach(println(_))
-    }
+    println(s"Result: ${result.count()} lines. Output path: ${maybeOutPath.getOrElse("<nothing>")}")
 
     sc.stop()
   }
