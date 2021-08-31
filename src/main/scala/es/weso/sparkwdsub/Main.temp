@@ -32,7 +32,7 @@ import es.weso.wbmodel.DumpUtils._
 import java.nio.file.Path
 
 
-object SparkWDSub {
+object Main {
 
   def main(args: Array[String]) {
     val logFile = "examples/6lines.json" 

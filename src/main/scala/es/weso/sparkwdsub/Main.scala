@@ -79,19 +79,19 @@ object Main {
     val schemaPath = Paths.get(args(1))
     val outPath = Paths.get(args(2))
         
-    doDump(filePath,schemaPath,Some(outPath),defaultSite,defaultMaxIterations,false,"ERROR")
+    doDump(filePath,schemaPath,Some(outPath),defaultSite,defaultMaxIterations,true,"ERROR")
   }
     
   def doDump(
     dumpFilePath: Path, 
     schemaPath: Path,
-    outPath: Option[Path], 
+    maybeOutPath: Option[Path], 
     site: String, 
     maxIterations: Int,
     verbose: Boolean,
     logLevel: String): Unit = {
 
-    val master = "local[*]"
+    val master = "local"
     val partitions = 1
 
     lazy val spark: SparkSession = SparkSession
@@ -111,6 +111,9 @@ object Main {
     val graph = lineParser.dumpPath2Graph(dumpFilePath,sc)
     val initialLabel = Start
     val schema = Schema.unsafeFromPath(schemaPath, CompactFormat)
+
+    if (verbose) println(s"Schema parsed: $schema")
+
     val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] = 
        PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
          graph, initialLabel, maxIterations, verbose)(
@@ -130,15 +133,22 @@ object Main {
 
     // TODO. Serialize and write to output
 
-    //if (verbose) {         
-    println(s"""|-------------------------------
+    maybeOutPath match {
+      case None => println(s"No output path")
+      case Some(outPath) => {
+        result.saveAsTextFile(outPath.toFile().getAbsolutePath())
+      }
+    }
+    
+    if (verbose) {         
+     println(s"""|-------------------------------
                 |End of validation
                 |-------------------------------""".stripMargin)   
-    println(s"Result:")
-    result
-    .collect()
-    .foreach(println(_))
-    // }
+     println(s"Result:")
+     result
+     .collect()
+     .foreach(println(_))
+    }
 
     sc.stop()
   }

@@ -7,6 +7,11 @@ val Java11 = "adopt@1.11"
 
 // Weso dependencies
 lazy val wdsubVersion          = "0.0.16"
+lazy val shexsVersion          = "0.1.93"
+lazy val srdfVersion           = "0.1.102"
+lazy val utilsVersion          = "0.1.98"
+lazy val documentVersion       = "0.0.32"
+
 
 // Other dependencies
 lazy val catsVersion           = "2.6.1"
@@ -16,11 +21,13 @@ lazy val munitEffectVersion    = "1.0.5"
 lazy val sparkVersion          = "3.1.2"
 lazy val jacksonVersion        = "2.12.2"
 lazy val sparkFastTestsVersion = "1.0.0"
+lazy val wikidataToolkitVersion = "0.12.1"
+
 
 // Other dependencies 
 lazy val catsCore          = "org.typelevel"                %% "cats-core"          % catsVersion
 lazy val catsKernel        = "org.typelevel"                %% "cats-kernel"        % catsVersion
-lazy val wdsub             = "es.weso"                      %% "wdsub"               % wdsubVersion
+// lazy val wdsub             = "es.weso"                      %% "wdsub"               % wdsubVersion
 lazy val decline           = "com.monovore"                 %% "decline"             % declineVersion
 lazy val declineEffect     = "com.monovore"                 %% "decline-effect"      % declineVersion
 lazy val jackson           = "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion
@@ -30,6 +37,20 @@ lazy val sparkSql          = "org.apache.spark"             %% "spark-sql"      
 lazy val sparkGraphx       = "org.apache.spark"             %% "spark-graphx"        % sparkVersion
 lazy val sparkFast         = "com.github.mrpowers"          %% "spark-fast-tests"    % sparkFastTestsVersion
 
+lazy val wdtk_dumpfiles   = "org.wikidata.wdtk" % "wdtk-dumpfiles"   % wikidataToolkitVersion
+lazy val wdtk_wikibaseapi = "org.wikidata.wdtk" % "wdtk-wikibaseapi" % wikidataToolkitVersion
+lazy val wdtk_datamodel   = "org.wikidata.wdtk" % "wdtk-datamodel"   % wikidataToolkitVersion
+lazy val wdtk_rdf         = "org.wikidata.wdtk" % "wdtk-rdf"         % wikidataToolkitVersion
+lazy val wdtk_storage     = "org.wikidata.wdtk" % "wdtk-storage"     % wikidataToolkitVersion
+lazy val wdtk_util        = "org.wikidata.wdtk" % "wdtk-util"        % wikidataToolkitVersion
+
+// WESO components
+lazy val document          = "es.weso"                    %% "document"        % documentVersion
+lazy val srdf              = "es.weso"                    %% "srdf"            % srdfVersion
+lazy val srdfJena          = "es.weso"                    %% "srdfjena"        % srdfVersion
+lazy val srdf4j            = "es.weso"                    %% "srdf4j"          % srdfVersion
+lazy val utils             = "es.weso"                    %% "utils"           % utilsVersion
+lazy val shex              = "es.weso"                    %% "shex"            % shexsVersion
 
 lazy val MUnitFramework = new TestFramework("munit.Framework")
 
@@ -52,6 +73,7 @@ lazy val sparkWdsubRoot = project
     assembly / mainClass := Some("es.weso.sparkwdsub.Main"),
     assembly / assemblyJarName := "wdsub.jar",
     ThisBuild / assemblyMergeStrategy := {
+     case x if Assembly.isConfigFile(x) => MergeStrategy.concat      
      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
      case x => MergeStrategy.first
     },
@@ -62,7 +84,12 @@ lazy val sparkWdsubRoot = project
   .settings(
     libraryDependencies ++= Seq(
       catsCore, catsKernel,
-      wdsub, 
+ //     wdsub, 
+      srdf,
+      srdfJena, 
+      shex,
+      wdtk_dumpfiles, 
+      wdtk_wikibaseapi,
       sparkSql, 
       sparkGraphx, 
       jackson,
