@@ -90,6 +90,15 @@ object Schema {
     schema <- IO.fromEither(ShEx2SimpleShEx().convertSchema(resolvedSchema))
   } yield schema
 
+  def fromString(
+                schemaString: String,
+                format: WShExFormat = CompactFormat
+              ): IO[Schema] = for {
+    schema <- es.weso.shex.Schema.fromString(schemaString, cnvFormat(format))
+    resolvedSchema <- es.weso.shex.ResolvedSchema.resolve(schema, None)
+    schema <- IO.fromEither(ShEx2SimpleShEx().convertSchema(resolvedSchema))
+  } yield schema
+
  /**
    * Read a Schema from a file
    * This version is unsafe in the sense that it can throw exceptions
@@ -105,5 +114,22 @@ object Schema {
    ): Schema = {
     import cats.effect.unsafe.implicits.global
     fromPath(path, format).unsafeRunSync()
+  }
+
+  /**
+    * Read a Schema from a file
+    * This version is unsafe in the sense that it can throw exceptions
+    * Use `fromPath` for a safe version which returns an `IO[Schema]`
+    *
+    * @param path file to read
+    * @param format it can be CompactFormat or JsonFormat
+    * @return the schema
+    */
+  def unsafeFromString2(
+                      schemaString: String,
+                      format: WShExFormat = CompactFormat
+                    ): Schema = {
+    import cats.effect.unsafe.implicits.global
+    fromString(schemaString, format).unsafeRunSync()
   }
 }
