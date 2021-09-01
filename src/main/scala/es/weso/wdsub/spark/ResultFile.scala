@@ -1,6 +1,7 @@
 package es.weso.wdsub.spark
 
-class ResultFile()
+@SerialVersionUID(10L)
+class ResultFile() extends Serializable
 {
   var jobName: String = ""
   var jobDate: String = ""

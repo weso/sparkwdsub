@@ -23,12 +23,12 @@ case class ShEx2SimpleShEx(convertOptions: ConvertOptions) {
     shexSchema: shex.AbstractSchema
     ): Either[ConvertError, Schema] = {
    for {
-    shapes <- mkSequence(
+    shapes <-
       shexSchema
         .shapesMap
         .toList
         .map{ case (l,se) => convertLabelShapeExpr(l,se) }
-    )
+        .sequence
 
      start <- shexSchema.start match {
        case None => Right(None)
@@ -37,8 +37,6 @@ case class ShEx2SimpleShEx(convertOptions: ConvertOptions) {
      }
     } yield Schema(shapes.toMap, start, shexSchema.prefixMap)
   }
-
-  private def mkSequence[A,B](ls: List[Either[A,B]]):Either[A,List[B]] = ls.sequence
 
   private def convertLabelShapeExpr(
     label: shex.ShapeLabel, 
