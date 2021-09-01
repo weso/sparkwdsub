@@ -49,3 +49,4 @@ pids
 *.tgz
 
 *~
+.DS_Store
