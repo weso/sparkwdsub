@@ -1,9 +1,9 @@
 name := "sparkWDSub"
 version := "1.0"
 
-scalaVersion := "2.12.14"
+scalaVersion := "2.12.10"
 
-val sparkVersion            = "3.1.1"
+val sparkVersion            = "3.1.2"
 val wikidataToolkitVersion  = "0.12.1"
 val jacksonVersion          = "2.10.0"
 val wdsubVersion            = "0.0.16"
@@ -19,11 +19,11 @@ val munitEffectVersion      = "1.0.5"
 libraryDependencies ++= Seq(
 
   // Spark dependencies.
-  "org.apache.spark" %% "spark-core"      % sparkVersion,
-  "org.apache.spark" %% "spark-sql"       % sparkVersion,
-  "org.apache.spark" %% "spark-mllib"     % sparkVersion,
-  "org.apache.spark" %% "spark-streaming" % sparkVersion,
-  "org.apache.spark" %% "spark-graphx"    % sparkVersion,
+  "org.apache.spark" %% "spark-core"      % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-sql"       % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-mllib"     % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-streaming" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-graphx"    % sparkVersion % "provided",
 
   // Wikidata toolkit dependencies.
   "org.wikidata.wdtk" % "wdtk-dumpfiles"   % wikidataToolkitVersion,
@@ -73,3 +73,10 @@ lazy val app = (project in file("."))
     assembly / mainClass := Some("es.weso.wqsub.spark.Main"),
     assembly / assemblyJarName := "wdsub.jar",
   )
+
+assembly / assemblyShadeRules := {
+  val shadePackage = "org.globalforestwatch.shaded"
+  Seq(
+    ShadeRule.rename("cats.kernel.**" -> s"$shadePackage.cats.kernel.@1").inAll
+  )
+}

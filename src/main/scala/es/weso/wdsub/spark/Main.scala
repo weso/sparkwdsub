@@ -1,6 +1,6 @@
 package es.weso.wdsub.spark
 
-object Main {
+object Main extends Serializable {
 
   def main(args: Array[String]): Unit =
   {

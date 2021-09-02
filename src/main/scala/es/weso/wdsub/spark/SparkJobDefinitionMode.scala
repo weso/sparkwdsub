@@ -1,6 +1,6 @@
 package es.weso.wdsub.spark
 
-object SparkJobDefinitionMode extends Enumeration
+object SparkJobDefinitionMode extends Enumeration with Serializable
 {
   type SparkJobDefinitionMode = Value
   val Test, Cluster = Value

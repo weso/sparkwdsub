@@ -2,7 +2,7 @@ package es.weso.wdsub.spark
 
 import org.rogach.scallop.ScallopConf
 
-class SparkJobConfig(arguments: Seq[String]) extends ScallopConf(arguments) {
+class SparkJobConfig(arguments: Seq[String]) extends ScallopConf(arguments) with Serializable {
 
   banner(
     """Welcome to WDSub Spark Launcher!!!
