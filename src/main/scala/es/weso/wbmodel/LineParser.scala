@@ -6,19 +6,37 @@ import DumpUtils._
 import org.apache.spark.SparkContext
 import java.nio.file.Path
 import org.apache.spark.rdd.RDD
+import org.apache.log4j.Logger
+import es.weso.rdf.nodes.IRI
 
 case class LineParser(site: String = "http://www.wikidata.org/entity/") {
 
     lazy val jsonDeserializer = new JsonDeserializer(site)
+    lazy val noEntity: Entity = Item(ItemId("Q0", IRI(site + "Q0")), 0L, Map(), Map(), Map(),site,List(),List())
+    @transient lazy val log = Logger.getLogger(getClass.getName)
 
-    def line2Entity(line: String): (Long,Entity) = {
+    def line2Entity(line: String): (Long,Entity) = try {
       val entityDocument = jsonDeserializer.deserializeEntityDocument(line)
       mkEntity(entityDocument)
+    } catch {
+      case e: Throwable => {
+        log.error(s"""|line2Entity. exception parsing line: ${e.getMessage()}
+                      |Line: ${line}
+                      |""".stripMargin)
+        (0L, noEntity)
+      }
     }
 
-    def line2Statement(line: String): List[Edge[Statement]] = {
+    def line2Statement(line: String): List[Edge[Statement]] = try {
       val entityDocument = jsonDeserializer.deserializeEntityDocument(line)
       mkStatements(entityDocument)  
+    } catch {
+      case e: Throwable => {
+        log.error(s"""|line2Statement: Exception parsing line: ${e.getMessage()}
+                      |Line: ${line}
+                      |""".stripMargin)
+        List()
+      }
     }
 
     def lines2Entities(lines: List[String]): List[(Long,Entity)] = 
@@ -27,11 +45,18 @@ case class LineParser(site: String = "http://www.wikidata.org/entity/") {
     def lines2Statements(lines:List[String]): List[Edge[Statement]] =
         lines.map(line2Statement(_)).toList.flatten
 
-    def line2EntityStatements(line: String): (Long,Entity,List[Edge[Statement]]) = {
+    def line2EntityStatements(line: String): (Long,Entity,List[Edge[Statement]]) = try {
       val entityDocument = jsonDeserializer.deserializeEntityDocument(line)
       val (id, entity) = mkEntity(entityDocument)
       val ss = mkStatements(entityDocument)  
       (id,entity,ss)
+    } catch {
+      case e: Throwable => {
+        log.error(s"""|line2EntityStatements: exception parsing line: ${e.getMessage()}
+                      |Line: ${line}
+                      |""".stripMargin)
+      (0L, noEntity, List())
+      }
     }
 
     def dumpPath2Graph(path: Path, sc: SparkContext): Graph[Entity,Statement] = {

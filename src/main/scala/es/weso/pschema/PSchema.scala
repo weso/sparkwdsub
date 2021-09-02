@@ -22,7 +22,7 @@ import org.apache.log4j.Logger
  **/ 
 object PSchema extends Serializable {
 
-  // @transient lazy val log = org.apache.log4j.LogManager.getLogger("myLogger")
+  // transient annotation avoids log to be serialized
   @transient lazy val log = Logger.getLogger(getClass.getName)
 
   def info(msg: String, verbose: Boolean) {
