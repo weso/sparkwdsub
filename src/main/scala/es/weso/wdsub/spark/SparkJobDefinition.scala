@@ -47,8 +47,9 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   val initialLabel = Start
   val schemaString = sparkContext.textFile(sparkJobConfig.jobInputSchema.apply()).toLocalIterator.mkString
   val schema = Schema.unsafeFromString2(schemaString, CompactFormat)
+  //val schema = Schema.unsafeFromPath(Paths.get(sparkJobConfig.jobInputSchema.apply()), CompactFormat)
 
-  resultFile.jobResults += s"\n$schema"
+  resultFile.jobResults += s"\n$schemaString"
 
   val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] =
     PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
