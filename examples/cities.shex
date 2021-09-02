@@ -4,7 +4,8 @@ prefix wde: <http://www.wikidata.org/entity/>
 Start = @<City>
 
 <City> {
- wde:P31 @<CityCode> 
+ wde:P31 @<CityCode>  
 }
 
 <CityCode> [ wde:Q515 ]
+

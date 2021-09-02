@@ -4,13 +4,14 @@ lazy val supportedScalaVersions = List(
 )
 
 val Java11 = "adopt@1.11"
+val Java8 = "adopt@1.8"
 
 // Weso dependencies
-lazy val wdsubVersion          = "0.0.16"
-lazy val shexsVersion          = "0.1.93"
-lazy val srdfVersion           = "0.1.102"
-lazy val utilsVersion          = "0.1.98"
-lazy val documentVersion       = "0.0.32"
+// lazy val wdsubVersion          = "0.0.16"
+lazy val shexsVersion          = "0.1.97"
+lazy val srdfVersion           = "0.1.104"
+lazy val utilsVersion          = "0.1.99"
+lazy val documentVersion       = "0.0.33"
 
 
 // Other dependencies
@@ -54,7 +55,7 @@ lazy val shex              = "es.weso"                    %% "shex"            %
 
 lazy val MUnitFramework = new TestFramework("munit.Framework")
 
-ThisBuild / githubWorkflowJavaVersions := Seq(Java11)
+ThisBuild / githubWorkflowJavaVersions := Seq(Java8)
 
 lazy val sparkWdsubRoot = project
   .in(file("."))
