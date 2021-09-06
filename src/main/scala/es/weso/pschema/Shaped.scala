@@ -5,20 +5,15 @@ import cats._
 import cats.data._
 import cats.implicits._
 
-sealed abstract class ValidationStatus[+VD,+L,+E,+P]
-case object Pending extends ValidationStatus[Nothing,Nothing,Nothing,Nothing]
-case class WaitingFor[VD,L,E,P](
-  ts: Set[(VD,P,L)],
-  validated: Set[(VD,P,L)],
-  notValidated: Set[((VD,P,L), Set[E])]
-) extends ValidationStatus[VD,L,E,P]
-case object Ok extends ValidationStatus[Nothing,Nothing,Nothing,Nothing]
-case class Failed[E](es: NonEmptyList[E]) extends ValidationStatus[Nothing,Nothing,E,Nothing]
-case object Inconsistent extends ValidationStatus[Nothing,Nothing,Nothing,Nothing]
-
+/**
+  * Decorates a value with a status map which informs about the validation status of some labels
+  *
+  * @param value
+  * @param statusMap
+  */
 case class Shaped[VD,L,E,P](
     value: VD, 
-    statusMap: Map[L, ValidationStatus[VD,L,E,P]]
+    statusMap: Map[L, ValidationStatus[L,E,P]]
   ) extends Serializable {
   
   lazy val pendingShapes = statusMap.collect {
@@ -63,7 +58,11 @@ case class Shaped[VD,L,E,P](
    this.copy(statusMap = newStatus) 
   }
 
-  def withWaitingFor(l: L, ws: Set[(VD,P,L)], validated: Set[(VD,P,L)], notValidated: Set[((VD,P,L),Set[E])]) = {
+  def withWaitingFor(
+    l: L, 
+    ws: Set[DependTriple[P,L]], 
+    validated: Set[DependTriple[P,L]], 
+    notValidated: Set[(DependTriple[P,L],Set[E])]) = {
     val newStatus = statusMap.get(l) match {
       case None => this.statusMap + ((l,WaitingFor(ws, validated, notValidated)))
       case Some(Pending) => this.statusMap + ((l,WaitingFor(ws,validated,notValidated)))
@@ -100,7 +99,3 @@ case class Shaped[VD,L,E,P](
 
 }
 
-
-object Shaped {
-
-}

@@ -94,7 +94,7 @@ object PSchema extends Serializable {
   def vprog(
     id: VertexId, 
     v: Shaped[VD, L, E, P], 
-    msg: Msg[VD, L,E,P]
+    msg: Msg[L, E, P]
   ): Shaped[VD, L, E, P] = {
 
    info(s"vprog: vertexId=$id", verbose) 
@@ -105,7 +105,7 @@ object PSchema extends Serializable {
    val v1 = v.pendingShapes.foldLeft(v) {
      case (v,pending) => {
        val waitingFor = msg.waitFor.collect { 
-         case (l,t) if l == pending => t 
+         case d if d.srcLabel == pending => d.dependTriple
        } 
        v.withWaitingFor(pending,waitingFor,Set(),Set())
      }
@@ -114,26 +114,26 @@ object PSchema extends Serializable {
    info(s"v1=$v1", verbose)
 
    val v2 = v1.waitingShapes.foldLeft(v1) {
-     case (v,(waitingLabel,ws)) => {
+     case (v,(waitingLabel,waitingStatus)) => {
        val notValidated = msg.notValidated.collect { 
-         case (l,t,e) if l == waitingLabel => (t,e) 
+         case (d,e) if d.srcLabel == waitingLabel => (d.dependTriple,e) 
        }
        val validated = msg.validated.collect { 
-         case (l,t) if l == waitingLabel => t 
+         case d if d.srcLabel == waitingLabel => d.dependTriple
        }
 
-       // Rest checks if there are some tuples associated with waitingLabel which are not
-       // validated nor notValidated
-       val rest = ws.ts.diff(
-         validated.union(notValidated.map { case (t,e) => t})
-       )
+       val notValidatedTriples = notValidated.map { case (t,e) => t}
+       val checked = validated union notValidatedTriples
+
+       // Rest checks if there are some tuples validated nor notValidated
+       val rest = waitingStatus.dependants diff checked
      
        if (rest.nonEmpty) {
          // there are still 'waitingFor' tuples
          v.withWaitingFor(waitingLabel, rest, validated, notValidated)
        } else {
        // no more 'waitingFor' 
-       val neighsBag = mkBag(ws.validated.union(validated))
+       val neighsBag = mkBag(waitingStatus.validated union validated)
        val failed = mkFailed(notValidated)
        val neighsChecked = checkNeighs(waitingLabel, neighsBag, failed) match {
         case Left(err) => v.addNoShape(waitingLabel,err)
@@ -174,13 +174,13 @@ object PSchema extends Serializable {
    v3
   }
 
-  def mkBag(s: Set[(VD,P,L)]): Bag[(P,L)] = 
-    Bag.toBag(s.map { case (_,p,l) => (p,l) })
+  def mkBag(s: Set[DependTriple[P,L]]): Bag[(P,L)] = 
+    Bag.toBag(s.map { case t => (t.prop,t.label) })
 
-  def mkFailed(s: Set[((VD,P,L), Set[E])]): Set[(P,L)] = 
-    s.map { case ((_,p,l),_) => (p,l) }
+  def mkFailed(s: Set[(DependTriple[P,L], Set[E])]): Set[(P,L)] = 
+    s.map { case (t,_) => (t.prop,t.label) }
 
-  def sendMsg(t: EdgeTriplet[Shaped[VD, L, E, P],ED]): Iterator[(VertexId, Msg[VD,L,E,P])] = {
+  def sendMsg(t: EdgeTriplet[Shaped[VD, L, E, P],ED]): Iterator[(VertexId, Msg[L, E, P])] = {
       val shapeLabels = t.srcAttr.unsolvedShapes
       val ls = shapeLabels.map(sendMessagesPending(_, t)).toIterator.flatten
       ls
@@ -188,7 +188,7 @@ object PSchema extends Serializable {
 
     def sendMessagesPending(
       pendingLabel: L, 
-      triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]): Iterator[(VertexId, Msg[VD, L, E,P])] = {
+      triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]): Iterator[(VertexId, Msg[L, E, P])] = {
 
      val tcs = getTripleConstraints(pendingLabel).filter(_._1 == cnvEdge(triplet.attr))
      info(s"""|sendMessagesPending(PendingLabel: ${pendingLabel}
@@ -204,19 +204,19 @@ object PSchema extends Serializable {
       p: P, 
       label: L, 
       triplet: EdgeTriplet[Shaped[VD, L, E, P],ED]
-      ): Iterator[(VertexId,Msg[VD,L,E,P])] = {
+      ): Iterator[(VertexId,Msg[L, E, P])] = {
       val obj = triplet.dstAttr
       val msgs = if (obj.okShapes contains label) {
         // tell src that label has been validated
-        List((triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstAttr.value))) // Msg.validated(pendingLabel, p, label, triplet.dstAttr.value)))
+        List((triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstId))) // Msg.validated(pendingLabel, p, label, triplet.dstAttr.value)))
       } else  if (obj.noShapes contains label) {
         val es = obj.failedShapes.map(_._2.toList.toSet).flatten
-        List((triplet.srcId, notValidatedMsg(pendingLabel,p,label,triplet.dstAttr.value, es)))
+        List((triplet.srcId, notValidatedMsg(pendingLabel,p,label,triplet.dstId, es)))
       } else {
         // ask dst to validate label
         List(
           (triplet.dstId, validateMsg(label)),
-          (triplet.srcId, waitForMsg(pendingLabel,p,label,triplet.dstAttr.value))
+          (triplet.srcId, waitForMsg(pendingLabel,p,label,triplet.dstId))
         )
       }
       info(s"""|Msgs: 
@@ -225,28 +225,28 @@ object PSchema extends Serializable {
       msgs.toIterator
     }
 
-    def validateMsg(lbl: L): Msg[VD,L,E,P] = {
-      Msg.validate[VD,L,E,P](Set(lbl))
+    def validateMsg(lbl: L): Msg[L, E, P] = {
+      Msg.validate[L,E,P](Set(lbl))
     }
 
-    def waitForMsg(lbl: L, p:P, l:L, v: VD): Msg[VD,L,E,P] = {
-      Msg.waitFor[VD,L,E,P](lbl,p,l,v)
+    def waitForMsg(lbl: L, p:P, l:L, v: VertexId): Msg[L, E, P] = {
+      Msg.waitFor[L,E,P](lbl,p,l,v)
     }
 
-    def notValidatedMsg(lbl: L, p: P, l: L, v: VD, es: Set[E]): Msg[VD,L,E,P] = {
+    def notValidatedMsg(lbl: L, p: P, l: L, v: VertexId, es: Set[E]): Msg[L,E,P] = {
       Msg.notValidated(lbl, p, l, v, es)
     }
 
-    def validatedMsg(lbl: L, p: P, l: L, v: VD): Msg[VD,L,E,P] = {
-      Msg.validated[VD,L,E,P](lbl, p, l, v)
+    def validatedMsg(lbl: L, p: P, l: L, v: VertexId): Msg[L,E,P] = {
+      Msg.validated[L,E,P](lbl, p, l, v)
     }
        
-    def mergeMsg(p1: Msg[VD,L,E,P], p2: Msg[VD,L,E,P]): Msg[VD,L,E,P] = p1.merge(p2) 
+    def mergeMsg(p1: Msg[L,E,P], p2: Msg[L,E,P]): Msg[L,E,P] = p1.merge(p2) 
 
     val shapedGraph: Graph[Shaped[VD, L, E, P], ED] = 
         graph.mapVertices{ case (vid,v) => Shaped[VD,L,E,P](v, Map()) } // , ShapesInfo.default) }
 
-    val initialMsg: Msg[VD,L,E,P] = 
+    val initialMsg: Msg[L,E,P] = 
         Msg.validate(Set(initialLabel))
 
     // Invoke pregel algorithm from SparkX    
