@@ -209,6 +209,23 @@ case object StringDatatype extends NodeConstraint {
  }
 }
 
+
+case object DateDatatype extends NodeConstraint {
+  override def matchLocal(value: Value) = {
+    val result = value match {
+    case _: DateValue => ().asRight
+    case _ => NoDateDatatype(value).asLeft
+  }
+ /* println(s"""|matchLocal
+              |nodeConstraint: $this
+              |Value: $value
+              |Valuetype: ${value.getClass().getCanonicalName()}
+              |Result: $result
+              |""".stripMargin) */
+  result
+ }
+}
+
 sealed trait ValueSetValue 
 sealed trait NonLocalValueSetValue extends ValueSetValue
 sealed trait LocalValueSetValue extends ValueSetValue

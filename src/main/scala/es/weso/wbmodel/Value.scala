@@ -137,12 +137,25 @@ case class IRIValue(
   override def toString = s"${iri.getLexicalForm}"
 }
 
-
-case class Qualifier(propertyId: PropertyId, value: Entity) {
-    override def toString = s"$propertyId:$value"
+sealed abstract class Qualifier 
+ extends Product with Serializable {
+  val propertyId: PropertyId
+  val value: Value
 }
 
-case class LocalQualifier(propertyId: PropertyId, value: LiteralValue) {
+case class EntityQualifier(
+  propertyId: PropertyId, 
+  entity: Entity
+ ) extends Qualifier {
+   override val value: Value = entity
+   override def toString = s"$propertyId:$value"
+}
+
+case class LocalQualifier(
+  propertyId: PropertyId, 
+  literal: LiteralValue
+  ) extends Qualifier {
+    override val value: Value = literal
     override def toString = s"$propertyId:$value"
 }
 
@@ -193,13 +206,27 @@ object Value {
   def vertexEdges(
    triplets: List[(Entity, PropertyRecord, Entity, List[Qualifier])]
    ):(Seq[Vertex[Entity]], Seq[Edge[Statement]]) = {
-    val subjects: Seq[Entity] = triplets.map(_._1)
-    val objects: Seq[Entity] = triplets.map(_._3)
-    val properties: Seq[PropertyRecord] = triplets.map(_._2)
-    val qualProperties: Seq[PropertyId] = triplets.map(_._4.map(_.propertyId)).flatten
-    val qualValues: Seq[Entity] = triplets.map(_._4.map(_.value)).flatten
-    val values: Seq[Vertex[Entity]] = subjects.union(objects).union(qualValues).map(v => Vertex(v.vertexId,v))
-    val edges = triplets.map(t => statement(t._1, t._2, t._3, t._4)).toSeq
+    val subjects: Seq[Entity] = 
+      triplets.map(_._1)
+    val objects: Seq[Entity] = 
+      triplets.map(_._3)
+    val properties: Seq[PropertyRecord] = 
+      triplets.map(_._2)
+    val qualProperties: Seq[PropertyId] = 
+      triplets.map(_._4.map(_.propertyId)).flatten
+    val qualEntities: Seq[Entity] = 
+      triplets.collect { case (_, _, e: Entity, _)  => e }
+    val values: Seq[Vertex[Entity]] = 
+      subjects
+      .union(objects)
+      .union(qualEntities)
+      .map(v => Vertex(v.vertexId,v)
+      )
+    val edges = 
+      triplets
+      .map(t => 
+        statement(t._1, t._2, t._3, t._4)
+        ).toSeq
     (values,edges)
   }
 
@@ -210,7 +237,10 @@ object Value {
   }
 
   def tripleq(
-    subj: Entity, prop: PropertyRecord, value: Entity, qs: List[Qualifier]
+    subj: Entity, 
+    prop: PropertyRecord, 
+    value: Entity, 
+    qs: List[Qualifier]
     ): (Entity, PropertyRecord, Entity, List[Qualifier]) = {
     (subj, prop, value, qs)
   }
@@ -249,8 +279,15 @@ object Value {
     subject: Entity,
     propertyRecord: PropertyRecord, 
     value: Entity, 
-    qs: List[Qualifier]): Edge[Statement] = 
-      Edge(subject.vertexId, value.vertexId, Statement(propertyRecord).withQualifiers(qs.toList))
+    qs: List[Qualifier]): Edge[Statement] = {
+      val localQs = qs.collect { case lq: LocalQualifier => lq }
+      val entityQs = qs.collect { case eq: EntityQualifier => eq }
+      Edge(
+        subject.vertexId, 
+        value.vertexId, 
+        Statement(propertyRecord).withQualifiers(entityQs)
+      )
+    }
 
     
 }

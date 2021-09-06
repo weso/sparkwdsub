@@ -7,7 +7,7 @@ import es.weso.rbe.interval._
 import es.weso.graphxhelpers.GraphBuilder._
 import es.weso.rdf.nodes._
 
-object SampleSchemas {
+class SampleSchemas extends PSchemaSuite {
 
   val schemaResearcher = Schema(
     Map(
@@ -20,7 +20,10 @@ object SampleSchemas {
         TripleConstraintRef(Pid(17), ShapeRef(IRILabel(IRI("Country"))),1,IntLimit(1))
       )))),
       IRILabel(IRI("Country")) -> EmptyExpr,
-      IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))))
+      IRILabel(IRI("Human")) -> 
+       ValueSet(None,List(
+         EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))
+       ))
     )
   )
 
@@ -83,5 +86,117 @@ object SampleSchemas {
       ))
     }
 
+
+{
+   val graph = simpleGraph1
+   val schema = schemaSimple
+   val expected: List[(String,List[String],List[String])] = List(
+     ("Q5", List("Human"), List("Start")), 
+     ("Q80", List("Start"), List())
+    )
+   testCase("Simple graph", graph, schema, Start, expected, false)
+} 
+
+{
+  val gb = for {
+       instanceOf <- P(31, "instance of")
+       timbl <- Q(80, "alice")
+       antarctica <- Q(51, "antarctica")
+       human <- Q(5, "Human")
+       continent <- Q(5107, "Continent")
+     } yield {
+       vertexEdges(List(
+         triple(antarctica, instanceOf.prec, continent),
+         triple(timbl, instanceOf.prec, human)
+       ))
+     }
+    val schema = Schema(
+     Map(
+       IRILabel(IRI("Start")) -> 
+        Shape(None,false,List(),Some(TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)))),
+       IRILabel(IRI("Human")) -> 
+        ValueSet(None,List(
+          EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))
+          )) 
+     ))
+    val expected = sort(List(
+        ("Q5", List("Human"), List("Start")),
+        ("Q51", List(), List("Start")), 
+        ("Q5107", List(), List("Human", "Start")),
+        ("Q80", List("Start"), List()),
+    ))
+   testCase(
+     "Simple schema", 
+     gb,schema,
+     IRILabel(IRI("Start")),
+     expected,
+     false,
+     5)
+  }
+
+ {
+   val gb: GraphBuilder[Entity,Statement] = for {
+      name <- P(1, "name")
+      knows <- P(2, "knows")
+      aliceBasic <- Q(1, "alice")
+      alice = aliceBasic.withLocalStatement(name.prec,Str("Alice"))
+    } yield {
+      vertexEdges(List(
+        triple(alice, knows.prec, alice),
+      ))
+    }  
+   val schema = Schema(
+      Map(
+      IRILabel(IRI("Person")) -> Shape(None, false, List(), Some(EachOf(List(
+        TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
+        TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
+      ))))
+     ))
+    val expected: List[(String,List[String], List[String])] = List(
+         ("Q1", List("Person"),List()) 
+        )
+   testCase("Simple recursion", gb, schema, IRILabel(IRI("Person")), expected, false)
+  }
+
+
+  {
+   val gb: GraphBuilder[Entity,Statement] = for {
+      name <- P(1, "name")
+      aliceBasic <- Q(1, "alice")
+      alice = aliceBasic.withLocalStatement(name.prec,Str("Alice"))
+      bobBasic <- Q(2, "bob")
+      bob = bobBasic.withLocalStatement(name.prec, Str("Robert"))
+      carolBasic <- Q(3,"carol")
+      carol = carolBasic.withLocalStatement(name.prec, Str("Carole"))
+      knows <- P(2, "knows")
+      dave <- Q(4, "dave")
+    } yield {
+      vertexEdges(List(
+        triple(alice, knows.prec, bob),
+        triple(alice, knows.prec, alice),
+        triple(bob, knows.prec, carol),
+        triple(dave, knows.prec, dave)
+      ))
+    }  
+   val schema = Schema(
+      Map(
+      IRILabel(IRI("Person")) -> 
+       Shape(None, false, List(), 
+        Some(EachOf(List(
+         TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
+         TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
+        )))
+       )
+     ))
+      
+   val expected: List[(String,List[String], List[String])] = List(
+        ("Q1", List("Person"),List()), 
+        ("Q2", List("Person"),List()),
+        ("Q3", List("Person"), List()),
+        ("Q4", List(), List("Person"))
+        )
+   
+    testCase("Recursion person", gb,schema, IRILabel(IRI("Person")), expected, true)
+  } 
 
 }

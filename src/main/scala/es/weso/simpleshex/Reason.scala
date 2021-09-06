@@ -15,6 +15,7 @@ case class ShapeNotFound(shapeLabel: ShapeLabel, schema: Schema) extends Reason
 case class NoMatch(bag: Bag[(PropertyId,ShapeLabel)], rbe: Rbe[(PropertyId, ShapeLabel)], errors: NonEmptyList[RbeError]) extends Reason
 case class NoValueValueSet(value: Value, valueSet: List[ValueSetValue]) extends Reason
 case class NoStringDatatype(value: Value) extends Reason
+case class NoDateDatatype(value: Value) extends Reason
 case class ErrorsMatching(es: List[Reason]) extends Reason
 case class CardinalityError(p: PropertyId, count: Int, min: Int, max: IntOrUnbounded) extends Reason
 case class WaitingForFailed(es: Set[(Value, PropertyId, ShapeLabel)]) extends Reason
