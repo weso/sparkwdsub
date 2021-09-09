@@ -100,8 +100,8 @@ case class LineParser(site: String = "http://www.wikidata.org/entity/") {
       vertices = vertices,
       edges = edges,
       defaultVertexAttr = null,
-      edgeStorageLevel = StorageLevel.DISK_ONLY,
-      vertexStorageLevel = StorageLevel.DISK_ONLY
+      edgeStorageLevel = StorageLevel.DISK_ONLY_2,
+      vertexStorageLevel = StorageLevel.DISK_ONLY_2
     )
   }
 

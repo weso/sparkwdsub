@@ -45,7 +45,8 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   //resultFile.jobResults += "\n Graph Vertices: " + graph.vertices.count()
 
   val initialLabel = Start
-  val schemaString = sparkContext.textFile(sparkJobConfig.jobInputSchema.apply()).toLocalIterator.mkString
+  var schemaString = ""
+  sparkContext.textFile(sparkJobConfig.jobInputSchema.apply()).collect().foreach({ line => schemaString += line + "\n"})
   val schema = Schema.unsafeFromString2(schemaString, CompactFormat)
   //val schema = Schema.unsafeFromPath(Paths.get(sparkJobConfig.jobInputSchema.apply()), CompactFormat)
 
