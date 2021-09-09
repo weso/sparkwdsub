@@ -32,6 +32,8 @@ start=@:disease
 
 
 :biological_process {
+  wde:P31 [ wd:Q14331103 ] ;
+  wde:P686 xsd:string ;
 }
 
 :chemical_compound EXTRA wde:P31 {
@@ -93,6 +95,8 @@ start=@:disease
 }
 
 :molecular_function {
+  wde:P31 [ wd:Q14860489 ] ;
+  wde:P686 xsd:string ;
 }
 
 :pharmaceutical_product EXTRA wde:P31 {
