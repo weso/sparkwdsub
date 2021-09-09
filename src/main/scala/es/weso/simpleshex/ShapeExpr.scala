@@ -59,6 +59,13 @@ sealed abstract class ShapeExpr extends Product with Serializable {
        case _ => List()
       }
     }
+    case ShapeAnd(_,ls) => { 
+      val tcs = ls.map(_.tripleConstraints(schema)).flatten
+      tcs
+    }
+    case ShapeOr(_,ls) => {
+      ls.map(_.tripleConstraints(schema)).flatten
+    }
     case _: NodeConstraint => List()
     case _ => List()
   }
@@ -134,9 +141,21 @@ sealed abstract class ShapeExpr extends Product with Serializable {
 //        case _: StringValue => Right(Set())
         case _ => Left(NoStringDatatype(entity))
       }
-      case EmptyExpr => Right(Set())
-      // TODO: ShapeAnd, ShapeOR, ShapeNot...
-      case _ => Right(Set())
+    case EmptyExpr => Right(Set())
+    case ShapeAnd(_,ls) => { 
+      val vs = ls.map(_.checkLocal(entity,fromLabel,schema)).sequence.map(_.toSet.flatten)
+      vs
+    }
+    case so@ShapeOr(_,ls) => { 
+      // TODO: check the semantics...it may be enough if one of the values matches...
+      val vs = ls.map(_.checkLocal(entity,fromLabel,schema))
+      val zero: Either[Reason,Set[ShapeLabel]] = Left(NoneMatchShapeOr(entity, so))
+      def cmb(v1: Either[Reason,Set[ShapeLabel]], current: Either[Reason,Set[ShapeLabel]]): Either[Reason,Set[ShapeLabel]] =
+         v1 orElse current
+      val rs = vs.foldRight(zero)(cmb)
+      rs
+    }
+    case _ => Right(Set())
      }
 /*     println(s"""|checkLocal with
                  | se: ${this}
@@ -233,3 +252,20 @@ sealed trait LocalValueSetValue extends ValueSetValue
 case class EntityIdValueSetValue(id: EntityId) extends NonLocalValueSetValue
 case class IRIValueSetValue(iri: IRI) extends LocalValueSetValue
 case class StringValueSetValue(str: String) extends LocalValueSetValue
+
+
+object ShapeExpr {
+
+  def label(iri: String): ShapeLabel = IRILabel(IRI(iri))
+
+  def shapeRef(iri: String): ShapeRef = ShapeRef(label(iri))
+
+  def shape(ls: List[TripleConstraint]): ShapeExpr =
+    Shape(None,false,List(), Some(EachOf(ls)))
+
+  def valueSet(ls: List[ValueSetValue]): ShapeExpr =
+    ValueSet(None,ls)  
+
+  def qid(num: Int): ValueSetValue =
+    EntityIdValueSetValue(EntityId.fromIri(IRI(Value.siteDefault) + ("/Q" + num)))  
+}

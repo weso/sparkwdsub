@@ -85,17 +85,24 @@ case class Shaped[VD,L,E,P](
     this.copy(statusMap = newStatus)
   }
 
-  def addNoShape(l: L, e: E) = {
+  def addNoShape(l: L, es: NonEmptyList[E]) = {
     val newStatus = statusMap.get(l) match {
-      case None => this.statusMap + ((l, Failed(NonEmptyList.one(e))))
+      case None => this.statusMap + ((l, Failed(es)))
       case Some(Ok) => this.statusMap + ((l, Inconsistent))
-      case Some(Failed(es)) => this.statusMap + ((l, Failed(es.append(e))))
+      case Some(Failed(es1)) => this.statusMap + ((l, Failed(es1.concatNel(es))))
       case Some(Inconsistent) => this.statusMap
-      case Some(_) => this.statusMap + ((l, Failed(NonEmptyList.one(e))))
+      case Some(_) => this.statusMap + ((l, Failed(es)))
     }
     this.copy(statusMap = newStatus)
   }
 
+  def addInconsistent(l: L) = {
+    val newStatus = statusMap.get(l) match {
+      case None => this.statusMap + ((l, Inconsistent))
+      case Some(_) => this.statusMap + ((l, Inconsistent))
+    }
+    this.copy(statusMap = newStatus)
+  }
 
 }
 

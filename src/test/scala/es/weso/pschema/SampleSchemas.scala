@@ -42,7 +42,7 @@ class SampleSchemas extends PSchemaSuite {
       instanceOf <- P(31, "instanceOf")
     } yield {
       vertexEdges(List(
-        triple(timBl, instanceOf.prec, human)
+        triple(timBl, instanceOf, human)
       ))
     }
   
@@ -73,14 +73,14 @@ class SampleSchemas extends PSchemaSuite {
       time <- P(585, "point in time")
     } yield {
       vertexEdges(List(
-        triple(timBl, instanceOf.prec , human),
-        triple(timBl, birthPlace.prec, london),
+        triple(timBl, instanceOf , human),
+        triple(timBl, birthPlace, london),
 //        tripleq(timBl, employer.pid, cern, List(Qualifier(start.pid, y1980.pid), Qualifier(end, y1980))),
 //        tripleq(timBl, employer, cern, List(Qualifier(start, y1984), Qualifier(end, y1994))),
 //        tripleq(timBl, awardReceived, paAward, List(Qualifier(togetherWith, vintCerf), Qualifier(time, y2002))),
-        triple(dAdams, instanceOf.prec, human), 
-        triple(paAward, country.prec, spain),
-        triple(vintCerf,instanceOf.prec, human),
+        triple(dAdams, instanceOf, human), 
+        triple(paAward, country, spain),
+        triple(vintCerf,instanceOf, human),
      //   tripleq(vintCerf, awardReceived.pid, paAward, List(Qualifier(togetherWith, timBl), Qualifier(time, y2002))),
      //   tripleq(cern, awardReceived, paAward, List(Qualifier(time,y2013)))
       ))
@@ -106,8 +106,8 @@ class SampleSchemas extends PSchemaSuite {
        continent <- Q(5107, "Continent")
      } yield {
        vertexEdges(List(
-         triple(antarctica, instanceOf.prec, continent),
-         triple(timbl, instanceOf.prec, human)
+         triple(antarctica, instanceOf, continent),
+         triple(timbl, instanceOf, human)
        ))
      }
     val schema = Schema(
@@ -142,7 +142,7 @@ class SampleSchemas extends PSchemaSuite {
       alice = aliceBasic.withLocalStatement(name.prec,Str("Alice"))
     } yield {
       vertexEdges(List(
-        triple(alice, knows.prec, alice),
+        triple(alice, knows, alice),
       ))
     }  
    val schema = Schema(
@@ -172,10 +172,10 @@ class SampleSchemas extends PSchemaSuite {
       dave <- Q(4, "dave")
     } yield {
       vertexEdges(List(
-        triple(alice, knows.prec, bob),
-        triple(alice, knows.prec, alice),
-        triple(bob, knows.prec, carol),
-        triple(dave, knows.prec, dave)
+        triple(alice, knows, bob),
+        triple(alice, knows, alice),
+        triple(bob, knows, carol),
+        triple(dave, knows, dave)
       ))
     }  
    val schema = Schema(

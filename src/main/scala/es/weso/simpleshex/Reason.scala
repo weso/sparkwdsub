@@ -25,3 +25,5 @@ case class NotImplemented(msg: String) extends Reason
 case class NotAllowedNotInExtra(notAllowed: List[(PropertyId, Int)]) extends Reason
 case class FailedPropsNotExtra(ps: Set[(PropertyId, ShapeLabel)]) extends Reason
 case class NullEntity(fromLabel: ShapeLabel) extends Reason
+case class NoneMatchShapeOr(entity: Entity, so: ShapeOr) extends Reason
+

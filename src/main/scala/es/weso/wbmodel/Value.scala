@@ -34,6 +34,12 @@ object EntityId {
     name(0) match {
       case 'P' => PropertyId(name,iri)
       case 'Q' => ItemId(name, iri)
+      case _ => 
+        throw new RuntimeException(s"""|Match error. EntityId.fromIri($iri): 
+                                       | localName: $name
+                                       | base: $base
+                                       | Should start by P or Q
+                                       |""".stripMargin)
     }
   }
 }
@@ -231,18 +237,25 @@ object Value {
   }
 
   def triple(
+    subj: Entity, prop: Property, value: Entity
+    ): (Entity, PropertyRecord, Entity, List[Qualifier]) = {
+    (subj, prop.prec, value, List())
+  }
+
+  
+/*  def triple(
     subj: Entity, prop: PropertyRecord, value: Entity
     ): (Entity, PropertyRecord, Entity, List[Qualifier]) = {
     (subj, prop, value, List())
-  }
+  } */
 
   def tripleq(
     subj: Entity, 
-    prop: PropertyRecord, 
+    prop: Property, 
     value: Entity, 
     qs: List[Qualifier]
     ): (Entity, PropertyRecord, Entity, List[Qualifier]) = {
-    (subj, prop, value, qs)
+    (subj, prop.prec, value, qs)
   }
 
   def Q(num: Int, label: String, site: String = siteDefault): Builder[Item] =  for {

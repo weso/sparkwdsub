@@ -75,9 +75,9 @@ class SchemasSuite extends FunSuite
        other <- Q(7,"Other")
      } yield {
        vertexEdges(List(
-         triple(timbl, instanceOf.prec, researcher),
-         triple(timbl, instanceOf.prec, human),
-         triple(other, instanceOf.prec, researcher)
+         triple(timbl, instanceOf, researcher),
+         triple(timbl, instanceOf, human),
+         triple(other, instanceOf, researcher)
        ))
      }
   val schema = 

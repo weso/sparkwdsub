@@ -136,7 +136,7 @@ object PSchema extends Serializable {
        val neighsBag = mkBag(waitingStatus.validated union validated)
        val failed = mkFailed(notValidated)
        val neighsChecked = checkNeighs(waitingLabel, neighsBag, failed) match {
-        case Left(err) => v.addNoShape(waitingLabel,err)
+        case Left(err) => v.addNoShape(waitingLabel,NonEmptyList.one(err))
         case Right(_) => v.addOkShape(waitingLabel)
        }
        info(s"""|checkNeighs(waitingLabel=$waitingLabel, neighsBag=$neighsBag,failed=$failed)= ${checkNeighs(waitingLabel,neighsBag,failed)}
@@ -154,7 +154,7 @@ object PSchema extends Serializable {
    val v3 = msg.validate.foldLeft(v2) {
     case (v,requestedLabel) => 
      checkLocal(requestedLabel,v.value) match {
-      case Left(err) => v.addNoShape(requestedLabel,err)
+      case Left(err) => v.addNoShape(requestedLabel,NonEmptyList.one(err))
       case Right(pendingLabels) => {
         info(s"vprog: checkLocal(requestedLabel=${requestedLabel}, value=${v.value}: $pendingLabels", verbose)
         if (v.unsolvedShapes contains requestedLabel) {

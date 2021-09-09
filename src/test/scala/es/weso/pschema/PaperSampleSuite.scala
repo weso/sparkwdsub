@@ -37,15 +37,15 @@ class PaperSampleSuite extends PSchemaSuite {
       time <- P(585, "point in time")
     } yield {
       vertexEdges(List(
-        triple(timBl, instanceOf.prec , human),
-        triple(timBl, birthPlace.prec, london),
-        triple(london, country.prec, uk),
-        tripleq(timBl, employer.prec, cern, List(LocalQualifier(start.prec.id, y1980), LocalQualifier(end.prec.id, y1980))),
-        tripleq(timBl, employer.prec, cern, List(LocalQualifier(start.prec.id, y1984), LocalQualifier(end.prec.id, y1994))),
-        tripleq(timBl, awardReceived.prec, paAward, List(EntityQualifier(togetherWith.prec.id, vintCerf), LocalQualifier(time.prec.id, y2002))),
-        triple(paAward, country.prec, spain),
-        triple(vintCerf,instanceOf.prec, human),
-        tripleq(cern, awardReceived.prec, paAward, List(LocalQualifier(time.prec.id,y2013)))
+        triple(timBl, instanceOf , human),
+        triple(timBl, birthPlace, london),
+        triple(london, country, uk),
+        tripleq(timBl, employer, cern, List(LocalQualifier(start.prec.id, y1980), LocalQualifier(end.prec.id, y1980))),
+        tripleq(timBl, employer, cern, List(LocalQualifier(start.prec.id, y1984), LocalQualifier(end.prec.id, y1994))),
+        tripleq(timBl, awardReceived, paAward, List(EntityQualifier(togetherWith.prec.id, vintCerf), LocalQualifier(time.prec.id, y2002))),
+        triple(paAward, country, spain),
+        triple(vintCerf,instanceOf, human),
+        tripleq(cern, awardReceived, paAward, List(LocalQualifier(time.prec.id,y2013)))
       ))
     }
 
