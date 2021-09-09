@@ -4,10 +4,12 @@ import org.wikidata.wdtk.datamodel.helpers.JsonDeserializer
 import org.apache.spark.graphx._
 import DumpUtils._
 import org.apache.spark.SparkContext
+
 import java.nio.file.Path
 import org.apache.spark.rdd.RDD
 import org.apache.log4j.Logger
 import es.weso.rdf.nodes.IRI
+import org.apache.spark.storage.StorageLevel
 
 case class LineParser(site: String = "http://www.wikidata.org/entity/") {
 
@@ -96,7 +98,10 @@ case class LineParser(site: String = "http://www.wikidata.org/entity/") {
 
     Graph(
       vertices = vertices,
-      edges = edges
+      edges = edges,
+      defaultVertexAttr = null,
+      edgeStorageLevel = StorageLevel.DISK_ONLY,
+      vertexStorageLevel = StorageLevel.DISK_ONLY
     )
   }
 
