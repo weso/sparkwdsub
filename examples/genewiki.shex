@@ -1,5 +1,6 @@
 PREFIX wde: <http://www.wikidata.org/entity/>
 PREFIX :    <http://example.org/>
+PREFIX wd: <http://www.wikidata.org/entity/>
 
 # This schema describes the GeneWiki subset from Wikidata
 # More information: https://elifesciences.org/articles/52614
