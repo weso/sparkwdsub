@@ -9,8 +9,8 @@ import es.weso.graphxhelpers.GraphBuilder._
 import es.weso.rdf.nodes._
 
 class SubClassInstanceOfSuite extends PSchemaSuite {
-
-/* val graph1: GraphBuilder[Entity, Statement] = for {
+/*
+ val graph1: GraphBuilder[Entity, Statement] = for {
       q1 <- Q(1,"Q1")
       q2 <- Q(2,"Q2")
       q3 <- Q(3,"Q3")
@@ -56,7 +56,7 @@ class SubClassInstanceOfSuite extends PSchemaSuite {
      ("Q4", List("T"), List("S")),
      ("Q5", List("H"), List("S"))
     )
-   testCase("SubclassOf* /InstanceOf example", graph1, schema1, label("S"), expected, true)
+   testCase("SubclassOf* /InstanceOf example", graph1, schema1, label("S"), expected, true, 10)
   } */
 
    val graph2: GraphBuilder[Entity, Statement] = for {
@@ -94,6 +94,6 @@ class SubClassInstanceOfSuite extends PSchemaSuite {
       ("Q3", List("S"), List()),
       ("Q5", List("H"), List("S"))
      )
-    testCase("SubclassOf*/InstanceOf example", graph2, schema2, label("S"), expected, true)
-   }
+    testCase("SubclassOf* /InstanceOf example", graph2, schema2, label("S"), expected, true)
+   } 
 }

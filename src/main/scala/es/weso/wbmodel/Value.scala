@@ -47,7 +47,9 @@ object EntityId {
 case class PropertyId(
   id: String, 
   iri: IRI
-  ) extends EntityId
+  ) extends EntityId {
+  override def toString = s"$id"
+}
 object PropertyId {
   implicit val showPropertyId: Show[PropertyId] = Show.show(p => p.id.toString)
   implicit val orderingById: Ordering[PropertyId] = Ordering.by(_.id)
@@ -57,7 +59,9 @@ object PropertyId {
   }
 }
 
-case class PropertyRecord(id: PropertyId, vertexId: VertexId)
+case class PropertyRecord(id: PropertyId, vertexId: VertexId) {
+  override def toString=s"$id-$vertexId"
+}
 
 sealed abstract class Entity extends Value {
   val vertexId: VertexId
@@ -69,7 +73,9 @@ sealed abstract class Entity extends Value {
   }
 }
 
-case class ItemId(id: String, iri: IRI) extends EntityId
+case class ItemId(id: String, iri: IRI) extends EntityId {
+  override def toString =s"$id"
+}
 
 case class Lang(code: String) extends AnyVal
 
@@ -84,14 +90,15 @@ case class Item(
     siteLinks: List[SiteLink]
   ) extends Entity {
 
-    lazy val entityId = itemId  
-    def iri: IRI = IRI(siteIri + "/" + itemId.id)
-    override def toString = s"${itemId.id}(${itemId.iri.getLexicalForm})-${labels.get(Lang("en")).getOrElse("")}@$vertexId"
+  lazy val entityId = itemId  
+  def iri: IRI = IRI(siteIri + "/" + itemId.id)
 
-    override def withLocalStatement(
-      prec: PropertyRecord, 
-      literal: LiteralValue, 
-      qs: List[Qualifier] = List()): Item =
+  override def toString = s"${itemId.id}-${labels.get(Lang("en")).getOrElse("")}@$vertexId"
+
+  override def withLocalStatement(
+    prec: PropertyRecord, 
+    literal: LiteralValue, 
+    qs: List[Qualifier] = List()): Item =
        this.copy(
          localStatements = this.localStatements :+ LocalStatement(prec,literal,qs)
         )
@@ -108,8 +115,11 @@ case class Property(
     localStatements: List[LocalStatement] = List(),
     datatype: Datatype = Datatype.defaultDatatype
     ) extends Entity {
+
     lazy val entityId = propertyId
+
     def iri: IRI = IRI(siteIri + "/" + propertyId.id)
+
     override def toString = s"${propertyId.id}-${labels.get(Lang("en")).getOrElse("")}@$vertexId"
 
     lazy val prec: PropertyRecord = PropertyRecord(propertyId, vertexId)
@@ -263,7 +273,12 @@ object Value {
     } yield {
       val qid = "Q" + num
       Item(ItemId(qid, iri = mkSite(site, qid)), id, Map(Lang("en") -> label), Map(), Map(), site, List(), List())
-    }
+  }
+
+  def Qid(num: Int, label: String, id: Long, site: String = siteDefault): Item = {
+    val qid = "Q" + num
+    Item(ItemId(qid, iri = mkSite(site, qid)), id, Map(Lang("en") -> label), Map(), Map(), site, List(), List())
+  }
 
   def mkSite(base: String, localName: String) = IRI(base + "/" + localName)
 

@@ -39,8 +39,8 @@ class RepeatedPropsSuite extends PSchemaSuite {
   {
    val expected: List[(String,List[String],List[String])] = List(
      ("Q1", List("S"), List()),
-     ("Q2", List("T"), List("S","U")),
-     ("Q3", List("U"), List("S","T"))
+     ("Q2", List("T"), List("S", "U")),
+     ("Q3", List("U"), List("S", "T"))
     )
    testCase("Repeated properties example", graph1, schema1, label("S"), expected, true)
   }

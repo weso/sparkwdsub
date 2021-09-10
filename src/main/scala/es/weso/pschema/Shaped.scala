@@ -39,10 +39,14 @@ case class Shaped[VD,L,E,P](
 
   lazy val unsolvedShapes = pendingShapes ++ waitingShapes.map(_._1)
 
+  def remove(lbl: L) = this.copy(statusMap = statusMap - lbl)
   def addPendingShapes(ls: Set[L]) = {
     val nonCheckedShapes = ls.diff(checkedShapes)
     if (nonCheckedShapes.nonEmpty) {
-      this.copy(statusMap = statusMap ++ ls.map(l => (l,Pending)).toMap)
+      this.copy(
+        statusMap = statusMap ++ 
+                    ls.map(l => (l,Pending)).toMap
+      )
     } else this
   }
 
@@ -62,7 +66,7 @@ case class Shaped[VD,L,E,P](
     l: L, 
     ws: Set[DependTriple[P,L]], 
     validated: Set[DependTriple[P,L]], 
-    notValidated: Set[(DependTriple[P,L],Set[E])]) = {
+    notValidated: Set[(DependTriple[P,L],NonEmptyList[E])]) = {
     val newStatus = statusMap.get(l) match {
       case None => this.statusMap + ((l,WaitingFor(ws, validated, notValidated)))
       case Some(Pending) => this.statusMap + ((l,WaitingFor(ws,validated,notValidated)))
@@ -106,3 +110,9 @@ case class Shaped[VD,L,E,P](
 
 }
 
+object Shaped {
+ 
+  def empty[VD,L,E,P](v: VD): Shaped[VD,L,E,P] = 
+    Shaped(v,Map())
+
+}

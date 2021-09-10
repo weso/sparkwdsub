@@ -40,7 +40,10 @@ class PSchemaSuite extends FunSuite
   val validatedGraph = 
    PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
      graph, initialLabel, maxIterations, verbose)(
-     schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+     schema.checkLocal _,
+     schema.checkNeighs _ ,
+     schema.getTripleConstraints _ ,
+     _.id
    )
 
   val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 

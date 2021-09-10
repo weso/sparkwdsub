@@ -70,9 +70,9 @@ class PaperSampleSuite extends PSchemaSuite {
    val schema = paperSchema
    val expected: List[(String,List[String],List[String])] = List(
      ("Q145", List("Country"), List("Researcher")),
-     ("Q29", List(), List()),
-     ("Q3320352", List(), List()),
-     ("Q42944", List(), List()),
+     ("Q29", List(), List("Researcher")),
+     ("Q3320352", List(), List("Researcher")),
+     ("Q42944", List(), List("Researcher")),
      ("Q5", List("Human"), List("Researcher")), 
      ("Q80", List("Researcher"), List()),
      ("Q84", List("Place"), List("Researcher")),

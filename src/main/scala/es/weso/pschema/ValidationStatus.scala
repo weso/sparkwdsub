@@ -26,7 +26,7 @@ case object Pending
 case class WaitingFor[VD,L,E,P](
   dependants: Set[DependTriple[P,L]],
   validated: Set[DependTriple[P,L]],
-  notValidated: Set[(DependTriple[P,L], Set[E])]
+  notValidated: Set[(DependTriple[P,L], NonEmptyList[E])]
 ) extends ValidationStatus[L,E,P]
 
 /**
