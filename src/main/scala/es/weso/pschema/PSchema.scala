@@ -195,10 +195,10 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
              case Some(Inconsistent) => acc.addInconsistent(lbl)
            }
 
-    case inc: InconsistentLabel[L,E,P] => acc.statusMap.get(lbl) match {
+/*    case inc: InconsistentLabel[L,E,P] => acc.statusMap.get(lbl) match {
       case None => acc.addInconsistent(lbl)
       case Some(_) => acc.addInconsistent(lbl)
-    }
+    } */
 
     case wf: WaitFor[L,P] => acc.statusMap.get(lbl) match {
       case None | Some(Pending) => acc.withWaitingFor(lbl, wf.ds, Set(), Set())

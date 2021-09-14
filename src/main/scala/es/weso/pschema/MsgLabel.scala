@@ -20,54 +20,44 @@ sealed abstract class MsgLabel[+L, +E, +P] extends Product with Serializable {
 
   override def toString: String = this match {
     case ValidateLabel => "Validate"
-    case Checked(oks, failed) => s"Checked(oks=${showSet(oks)}, failed=${showPairNel(failed)})"
-    case InconsistentLabel(okts, failts) => s"Inconsistent(oks=${showSet(okts)}, fails=${showPairNel(failts)}"
+    case Checked(oks, failed, incs) => s"Checked(oks=${showSet(oks)}, failed=${showPairNel(failed)}, incs=${showSet(incs)})"
     case WaitFor(ds) => s"WaitFor ${showSet(ds)}"
   }
 }
 case object ValidateLabel extends MsgLabel[Nothing,Nothing,Nothing]
-case class Checked[L,E,P](oks: Set[DependTriple[P,L]], failed: Set[(DependTriple[P,L], NonEmptyList[E])]) extends MsgLabel[L, Nothing, P] {
+case class Checked[L,E,P](
+   oks: Set[DependTriple[P,L]], 
+   failed: Set[(DependTriple[P,L], NonEmptyList[E])],
+   incs: Set[DependTriple[P,L]]
+  ) extends MsgLabel[L, E, P] {
   lazy val dependantsChecked = oks ++ failed.map(_._1)
 }
-case class InconsistentLabel[L,E,P](okts: Set[DependTriple[P,L]], failts: Set[(DependTriple[P,L], NonEmptyList[E])]) extends MsgLabel[L,E,P]
+// case class InconsistentLabel[L,E,P](okts: Set[DependTriple[P,L]], failts: Set[(DependTriple[P,L], NonEmptyList[E])]) extends MsgLabel[L,E,P]
 case class WaitFor[L,P](ds: Set[DependTriple[P,L]]) extends MsgLabel[L,Nothing,P]
 
 object MsgLabel {
 
   def emptyFailed[L,E,P] = Set[(DependTriple[P,L], NonEmptyList[E])]()
-  def emptyOks[P,L] = Set[DependTriple[P,L]]()
+  def emptyOks[L,P] = Set[DependTriple[P,L]]()
+  def emptyIncs[L,P] = Set[DependTriple[P,L]]()
   
   def checkedOk[L,E,P](ok: DependTriple[P,L]): Checked[L,E,P] = 
-    Checked(Set(ok), emptyFailed[L,E,P])
+    Checked(Set(ok), emptyFailed[L,E,P], emptyIncs[L,P])
 
   implicit def MsgLabelMonoid[L,E,P]: Semigroup[MsgLabel[L,E,P]] = new Semigroup[MsgLabel[L,E,P]] {
     override def combine(x: MsgLabel[L,E,P], y: MsgLabel[L,E,P]): MsgLabel[L,E,P] = x match {
-      case ValidateLabel => y /*y match {
-        case ValidateLabel => ValidateLabel
-        case vdy: Validated[L,P] => vdy
-        case nvdy: NotValidated[L, E, P] => nvdy
-        case incy: InconsistentLabel[L,E, P] => incy
-        case wf: WaitFor[L,P] => wf
-      } */
+      case ValidateLabel => y 
       case cx: Checked[L,E,P] => y match {
         case ValidateLabel => x 
         case cy: Checked[L,E,P] => {
-          Checked[L,E,P](cx.oks union cy.oks, cx.failed union cy.failed)
+          Checked[L,E,P](cx.oks union cy.oks, cx.failed union cy.failed, cx.incs union cy.incs)
         }
-        case incy: InconsistentLabel[L,E,P] => InconsistentLabel(incy.okts union cx.oks, incy.failts)
-        case wfy: WaitFor[L,P] => Checked(cx.oks union wfy.ds, cx.failed)
+        case wfy: WaitFor[L,P] => Checked(cx.oks union wfy.ds, cx.failed, cx.incs)
       }
 
-      case inc: InconsistentLabel[L,E,P] => y match {
-        case ValidateLabel => x 
-        case cy: Checked[L,E,P] => InconsistentLabel(inc.okts union cy.oks, inc.failts union cy.failed)
-        case incy: InconsistentLabel[L,E,P] => InconsistentLabel(inc.okts union incy.okts, inc.failts union incy.failts)
-        case wf: WaitFor[L,P] => InconsistentLabel(inc.okts union wf.ds, inc.failts) // TODO: do we ignode wf?
-      }
       case wf: WaitFor[L,P] => y match {
         case ValidateLabel => x
-        case cy: Checked[L,E, P] => Checked(cy.oks union wf.ds, cy.failed)
-        case inc: InconsistentLabel[L,E,P] => InconsistentLabel(inc.okts union wf.ds, inc.failts) // TODO: Do we ignore wf info?
+        case cy: Checked[L,E, P] => Checked(cy.oks union wf.ds, cy.failed, cy.incs)
         case wfy: WaitFor[L,P] => WaitFor(wf.ds union wfy.ds)
       }
     }
