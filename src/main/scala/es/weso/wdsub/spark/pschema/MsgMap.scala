@@ -11,6 +11,7 @@ case class MsgMap[L, E, P: Ordering](
 
   lazy val emptyFailed = Set[(DependTriple[P,L], NonEmptyList[E])]()
   lazy val emptyOks = Set[DependTriple[P,L]]()
+  lazy val emptyIncs = Set[DependTriple[P,L]]()
 
   def withValidateSingle(lbl: L): MsgMap[L,E,P] = mmap.get(lbl) match {
     case None => MsgMap(mmap.updated(lbl, ValidateLabel))
@@ -18,13 +19,15 @@ case class MsgMap[L, E, P: Ordering](
   }
 
   def withValidatedSingle(d: DependInfo[P,L]): MsgMap[L,E,P] = {
-    val msgLabel =  Checked(Set(d.dependTriple), emptyFailed)
+    val msgLabel =  Checked(Set(d.dependTriple), emptyFailed, emptyIncs)
     val lbl = d.srcLabel
     MsgMap(mmap.combine(Map(lbl -> msgLabel)))
   }
 
   def withNotValidatedSingle(d: DependInfo[P,L], es: NonEmptyList[E]): MsgMap[L,E,P] = {
-    MsgMap(mmap.combine(Map(d.srcLabel -> Checked(emptyOks, Set((d.dependTriple, es))))))
+    MsgMap(mmap.combine(Map(
+      d.srcLabel -> Checked(emptyOks, Set((d.dependTriple, es)), emptyIncs)
+    )))
   }
 
   def withWaitForSingle(d: DependInfo[P,L]): MsgMap[L,E,P] = {
