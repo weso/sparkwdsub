@@ -11,15 +11,15 @@ import scala.reflect.ClassTag
 import org.apache.log4j.Logger
 
 /**
-  * Pregel Schema validation
-  *
-  * Converts a Graph[VD,ED] into a Graph[ShapedValue[VD, L, E, P], ED]
-  *
-  * where
-  * L = labels in Schema
-  * E = type of errors
-  * P = type of property identifiers
-  **/
+ * Pregel Schema validation
+ *
+ * Converts a Graph[VD,ED] into a Graph[ShapedValue[VD, L, E, P], ED]
+ *
+ * where
+ * L = labels in Schema
+ * E = type of errors
+ * P = type of property identifiers
+ **/
 
 class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
 (checkLocal: (L, VD) => Either[E, Set[L]],
@@ -104,7 +104,7 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
         //
         if (obj.unsolvedShapes contains label) {
           List(
-            (triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstId))
+            // (triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstId))
           )
         } else
         //
@@ -173,8 +173,7 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
 
       // When the message is that some neighs have been checked with a label
       case c: Checked[L,E,P] => acc.statusMap.get(lbl) match {
-        case None => acc.addOkShape(lbl)
-        case Some(Pending) => acc.addOkShape(lbl)
+        case None | Some(Pending) => acc.addOkShape(lbl)
         case Some(wf : WaitingFor[_, L,E, P]) => {
           val rest = wf.dependants.diff(c.dependantsChecked)
           if (rest.isEmpty) {
@@ -194,11 +193,6 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
         case Some(Failed(_)) => acc.addInconsistent(lbl)
         case Some(Inconsistent) => acc.addInconsistent(lbl)
       }
-
-      /*    case inc: InconsistentLabel[L,E,P] => acc.statusMap.get(lbl) match {
-            case None => acc.addInconsistent(lbl)
-            case Some(_) => acc.addInconsistent(lbl)
-          } */
 
       case wf: WaitFor[L,P] => acc.statusMap.get(lbl) match {
         case None | Some(Pending) => acc.withWaitingFor(lbl, wf.ds, Set(), Set())
@@ -267,50 +261,50 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
 object PSchema extends Serializable {
 
   /**
-    * Execute a Pregel-like iterative vertex-parallel abstraction following
-    * a validationg schema.
-    *
-    * On the first iteration all vertices receive the `initialMsg` and
-    * on subsequent iterations if a vertex does not receive a message
-    * then the vertex-program is not invoked.
-    *
-    * This function iterates until there are no remaining messages, or
-    * for `maxIterations` iterations.
-    *
-    * @tparam VD the vertex data type
-    * @tparam ED the edge data type
-    * @tparam L the type of labels in the schema
-    * @tparam E the type of errors that happen when validating
-    * @tparam P the type of properties (arcs in the graph)
-    *
-    * @param graph the input graph.
-    *
-    * @param initialLabel the start label
-    *
-    * @param maxIterations the maximum number of iterations to run for
-    *
-    * @param checkLocal the function that validates locally a
-    * vertex against a label in the schema
-    * it returns either an error or if it validates, a set of pending labels
-    * If there is no pending labels, the set will be empty
-    *
-    * @param checkNeighs it checks the bag of neighbours of a node against
-    * the regular bag expression defined by the label in the schema
-    * The third parameter contains the triples that didn't validate
-    *
-    * @param getTripleConstraints returns the list of triple constraints
-    *  associated with a label in a schema. A triple constraint is a pair with
-    * an arc and a pending label
-    *
-    * @param cnvProperty a function that converts the type of edges to
-    * the type of arcs employed in the schema
-    *
-    * @return the resulting graph at the end of the computation with the
-    * values embedded in a `ShapedValue` class that contains information
-    * about ok shapes, failed shapes,
-    * inconsistent shapes and pending shapes.
-    *
-    */
+   * Execute a Pregel-like iterative vertex-parallel abstraction following
+   * a validationg schema.
+   *
+   * On the first iteration all vertices receive the `initialMsg` and
+   * on subsequent iterations if a vertex does not receive a message
+   * then the vertex-program is not invoked.
+   *
+   * This function iterates until there are no remaining messages, or
+   * for `maxIterations` iterations.
+   *
+   * @tparam VD the vertex data type
+   * @tparam ED the edge data type
+   * @tparam L the type of labels in the schema
+   * @tparam E the type of errors that happen when validating
+   * @tparam P the type of properties (arcs in the graph)
+   *
+   * @param graph the input graph.
+   *
+   * @param initialLabel the start label
+   *
+   * @param maxIterations the maximum number of iterations to run for
+   *
+   * @param checkLocal the function that validates locally a
+   * vertex against a label in the schema
+   * it returns either an error or if it validates, a set of pending labels
+   * If there is no pending labels, the set will be empty
+   *
+   * @param checkNeighs it checks the bag of neighbours of a node against
+   * the regular bag expression defined by the label in the schema
+   * The third parameter contains the triples that didn't validate
+   *
+   * @param getTripleConstraints returns the list of triple constraints
+   *  associated with a label in a schema. A triple constraint is a pair with
+   * an arc and a pending label
+   *
+   * @param cnvProperty a function that converts the type of edges to
+   * the type of arcs employed in the schema
+   *
+   * @return the resulting graph at the end of the computation with the
+   * values embedded in a `ShapedValue` class that contains information
+   * about ok shapes, failed shapes,
+   * inconsistent shapes and pending shapes.
+   *
+   */
   def apply[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering](
                                                                       graph: Graph[VD,ED],
                                                                       initialLabel: L,
