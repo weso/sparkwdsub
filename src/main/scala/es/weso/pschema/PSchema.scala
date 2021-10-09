@@ -173,8 +173,7 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
 
     // When the message is that some neighs have been checked with a label
     case c: Checked[L,E,P] => acc.statusMap.get(lbl) match {
-        case None => acc.addOkShape(lbl)
-        case Some(Pending) => acc.addOkShape(lbl)
+        case None | Some(Pending) => acc.addOkShape(lbl)
         case Some(wf : WaitingFor[_, L,E, P]) => { 
           val rest = wf.dependants.diff(c.dependantsChecked)
           if (rest.isEmpty) {
@@ -190,15 +189,10 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
                  .withWaitingFor(lbl, rest, wf.validated ++ c.oks, wf.notValidated ++ c.failed)
                }
              }
-             case Some(Ok) => acc
-             case Some(Failed(_)) => acc.addInconsistent(lbl)
-             case Some(Inconsistent) => acc.addInconsistent(lbl)
-           }
-
-/*    case inc: InconsistentLabel[L,E,P] => acc.statusMap.get(lbl) match {
-      case None => acc.addInconsistent(lbl)
-      case Some(_) => acc.addInconsistent(lbl)
-    } */
+        case Some(Ok) => acc
+        case Some(Failed(_)) => acc.addInconsistent(lbl)
+        case Some(Inconsistent) => acc.addInconsistent(lbl)
+      }
 
     case wf: WaitFor[L,P] => acc.statusMap.get(lbl) match {
       case None | Some(Pending) => acc.withWaitingFor(lbl, wf.ds, Set(), Set())

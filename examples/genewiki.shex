@@ -32,7 +32,7 @@ start=@:disease
 
 
 :biological_process {
-  wde:P31 [ wd:Q14331103 ] ;
+  wde:P31  [ wd:Q2996394 ] ;
   wde:P686 xsd:string ;
 }
 
@@ -67,6 +67,7 @@ start=@:disease
 }
 
 :gene EXTRA wde:P31 {
+  wde:P31   [ wd:Q7187 ] ;
   wde:P703  @:taxon * ;
   wde:P684  @:gene * ; 
   wde:P682  @:biological_process ;

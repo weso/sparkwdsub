@@ -12,5 +12,6 @@ case class DependInfo[P,L](
 ) {
   override def toString: String = 
     s"depend(srcLabel=$srcLabel, triple: $dependTriple)"
+
 }
 
