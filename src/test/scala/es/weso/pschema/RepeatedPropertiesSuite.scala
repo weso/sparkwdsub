@@ -42,7 +42,7 @@ class RepeatedPropsSuite extends PSchemaSuite {
      ("Q2", List("T"), List("S", "U")),
      ("Q3", List("U"), List("S", "T"))
     )
-   testCase("Repeated properties example", graph1, schema1, label("S"), expected, true)
+  // testCase("Repeated properties example", graph1, schema1, label("S"), expected, true)
   }
 
 }

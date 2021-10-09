@@ -104,7 +104,7 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
         // 
         if (obj.unsolvedShapes contains label) {
          List(
-            (triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstId))
+           // (triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstId))
          ) 
         } else
         // 
