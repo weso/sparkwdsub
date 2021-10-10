@@ -15,6 +15,10 @@ project/plugins/project/
 
 # Metals
 .metals
+metals.sbt
+project/metals.sbt
+project/project/metals.sbt
+project/project/project/metals.sbt
 
 # Antlr
 .antlr

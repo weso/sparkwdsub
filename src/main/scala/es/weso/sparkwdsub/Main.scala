@@ -46,7 +46,8 @@ object Main {
    site: String,
    maxIterations: Int,
    verbose: Boolean,
-   logLevel: String
+   logLevel: String,
+   keepShapes: Boolean
   )
   val filePath = Opts.argument[Path](metavar="dumpFile")
   val schemaPath = Opts.option[Path]("schema", help="schema path", short="s", metavar="file")
@@ -55,10 +56,11 @@ object Main {
   val verbose = Opts.flag("verbose", "Verbose mode").orFalse
   val logLevel = Opts.option[String]("loggingLevel", s"Logging level (ERROR, WARN, INFO), default=${defaultLoggingLevel}").withDefault(defaultLoggingLevel)
   val maxIterations = Opts.option[Int]("maxIterations", s"Max iterations for Pregel algorithm, default =${defaultMaxIterations}").withDefault(defaultMaxIterations)
+  val keepShapes = Opts.flag("keepShapes", "Keep shapes in output").orTrue
 
   val dump: Opts[Dump] = 
     Opts.subcommand("dump", "Process example dump file.") {
-      (filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel).mapN(Dump)
+      (filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel, keepShapes).mapN(Dump)
   }  
 
   val dumpCommand = Command(
@@ -69,18 +71,19 @@ object Main {
   }
 
   def main(args: Array[String]): Unit = {
-    /* dumpCommand.parse(args).map {
-      case Dump(filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel) => 
-        doDump(filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel)
-    }  */
-    if (args.size != 3) {
+    dumpCommand.parse(args).map {
+      case Dump(filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel, keepShapes) => 
+        doDump(filePath, schemaPath, outPath, site, maxIterations, verbose, logLevel, keepShapes)
+    }
+/*    if (args.size != 3) {
       println(s"Usage: sparkwdsub dumpFilePath schemaPath outResultPath")
     }
     val filePath = Paths.get(args(0))
     val schemaPath = Paths.get(args(1))
-    val outPath = Paths.get(args(2))
+    val outPath = Paths.get(args(2)) 
         
     doDump(filePath,schemaPath,Some(outPath),defaultSite,defaultMaxIterations,true,"ERROR")
+    */
   }
     
   def doDump(
@@ -90,7 +93,9 @@ object Main {
     site: String, 
     maxIterations: Int,
     verbose: Boolean,
-    logLevel: String): Unit = {
+    logLevel: String,
+    keepShapes: Boolean
+    ): Unit = {
 
     val master = "local"
     val partitions = 1
@@ -121,15 +126,15 @@ object Main {
            schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
          )
 
-    val subGraph = 
-      validatedGraph
-      .subgraph(filterEdges,filterVertices)
+    // Keep only that have OK shapes 
+    val subGraph = validatedGraph.subgraph(filterEdges,filterVertices)
 
     val result = 
         graph2rdd(
-          subGraph
-          .mapVertices{ case (_,v) => v.value }
-          )
+          subGraph.mapVertices{ case (_,v) => 
+            if (keepShapes) (v.value.withOkShapes(v.okShapes)) 
+            else v.value
+           }, keepShapes)
     
 
     // TODO. Serialize and write to output
@@ -147,16 +152,14 @@ object Main {
       }
     }
     
-    println(s"""|-------------------------------
-                |End of validation
-                |-------------------------------""".stripMargin)   
-    println(s"Result: ${result.count()} lines. Output path: ${maybeOutPath.getOrElse("<nothing>")}")
+    println(s"""|Result: ${result.count()} lines. 
+                |Output path: ${maybeOutPath.getOrElse("<nothing>")}""".stripMargin)
 
     sc.stop()
   }
 
-  def graph2rdd(g: Graph[Entity,Statement]): RDD[String] = 
-    g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_))
+  def graph2rdd(g: Graph[Entity,Statement], showShapes: Boolean): RDD[String] = 
+    g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_, showShapes))
 
   def filterEdges(t: EdgeTriplet[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement]): Boolean = {
     t.srcAttr.okShapes.nonEmpty
