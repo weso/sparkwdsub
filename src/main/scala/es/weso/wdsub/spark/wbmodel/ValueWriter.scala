@@ -1,5 +1,6 @@
 package es.weso.wdsub.spark.wbmodel
 
+import es.weso.wdsub.spark.simpleshex.ShapeLabel
 import org.wikidata.wdtk.datamodel.helpers.JsonSerializer
 import org.wikidata.wdtk.datamodel.implementation._
 import org.wikidata.wdtk.datamodel.interfaces.{SiteLink => WBSiteLink, _}
@@ -9,32 +10,38 @@ import scala.collection.JavaConverters._
 
 object ValueWriter {
 
-  def entity2JsonStr(v: Entity): String = {
-    
+  def entity2JsonStr(v: Entity, showShapes: Boolean): String = {
+
     val os = new ByteArrayOutputStream()
-//    val jsonSerializer = new JsonSerializer(os)
-//    jsonSerializer.open()
+    //    val jsonSerializer = new JsonSerializer(os)
+    //    jsonSerializer.open()
     val str = entity2entityDocument(v) match {
-      case id: ItemDocument => JsonSerializer.getJsonString(id)
-      case pd: PropertyDocument => JsonSerializer.getJsonString(pd)
+      case id: ItemDocument => JsonSerializer.getJsonString(id) ++ printShapes(showShapes, v.okShapes)
+      case pd: PropertyDocument => JsonSerializer.getJsonString(pd) ++ printShapes(showShapes, v.okShapes)
       case _ => ""
     }
     str
-//    jsonSerializer.close()
+    //    jsonSerializer.close()
+  }
+
+  private def printShapes(showShapes: Boolean, shapes: Set[ShapeLabel]): String = {
+    if (showShapes && shapes.nonEmpty) {
+      "// Shapes: " ++ shapes.map(_.name).mkString(",")
+    } else ""
   }
 
   def entity2entityDocument(v: Entity): EntityDocument = v match {
     case i: Item => {
       val ed = new ItemDocumentImpl(
-        cnvItemId(i.itemId), 
+        cnvItemId(i.itemId),
         cnvMultilingual(i.labels).asJava,
         cnvMultilingual(i.descriptions).asJava,
         cnvMultilingual(i.aliases).asJava,
         cnvStatements(i.localStatements).asJava,
         cnvSiteLinks(i.siteLinks).asJava,
         0L
-        )
-      ed  
+      )
+      ed
     }
     case p: Property => {
       val pd = new PropertyDocumentImpl(
@@ -45,21 +52,21 @@ object ValueWriter {
         cnvStatements(p.localStatements).asJava,
         cnvDatatype(p.datatype),
         0L
-        )
-      pd  
+      )
+      pd
     }
   }
 
-  def cnvMultilingual(m: Map[Lang,String]): List[MonolingualTextValue] = 
-    m.toList.map { 
-      case (lang,text) => 
+  def cnvMultilingual(m: Map[Lang,String]): List[MonolingualTextValue] =
+    m.toList.map {
+      case (lang,text) =>
         new MonolingualTextValueImpl(text, lang.code)
     }
 
-  def cnvItemId(id: ItemId): ItemIdValue = 
+  def cnvItemId(id: ItemId): ItemIdValue =
     new ItemIdValueImpl(id.id,id.iri.getLexicalForm)
 
-  def cnvPropertyId(pd: PropertyId): PropertyIdValue = 
+  def cnvPropertyId(pd: PropertyId): PropertyIdValue =
     new PropertyIdValueImpl(pd.id, pd.iri.getLexicalForm)
 
   def cnvStatements(ls: List[LocalStatement]): List[StatementGroup] = List()

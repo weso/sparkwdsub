@@ -31,7 +31,7 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
     sparkContext = new SparkContext( new SparkConf().setAppName( sparkJobConfig.jobName.apply()) )
   }
 
-  // Start measuring the execution time.
+  // Start measuring the execution time.]
   val jobStartTime = System.nanoTime
 
   // Load the dump in to an RDD of type String. The RDD will be composed of each single line as a String.
@@ -65,7 +65,7 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   val result =
     graph2rdd(
       subGraph
-        .mapVertices{ case (_,v) => v.value }
+        .mapVertices{ case (_,v) => v.value.withOkShapes(v.okShapes) }
     )
 
 
@@ -88,7 +88,7 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   // ------- UTILITY METHODS ---------
 
   def graph2rdd(g: Graph[Entity,Statement]): RDD[String] =
-    g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_))
+    g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_, sparkJobConfig.keepShapes.apply()))
 
   def filterEdges(t: EdgeTriplet[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement]): Boolean = {
     t.srcAttr.okShapes.nonEmpty

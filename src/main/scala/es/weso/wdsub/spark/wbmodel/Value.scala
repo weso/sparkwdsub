@@ -6,6 +6,7 @@ import org.apache.spark.graphx._
 import cats.implicits._
 import cats._
 import es.weso.rdf.nodes._
+import es.weso.wdsub.spark.simpleshex.ShapeLabel
 import org.wikidata.wdtk.datamodel.interfaces.DatatypeIdValue
 
 object Utils {
@@ -67,10 +68,14 @@ sealed abstract class Entity extends Value {
   val vertexId: VertexId
   val entityId: EntityId
   val localStatements: List[LocalStatement]
+  val okShapes: Set[ShapeLabel]
+
   def withLocalStatement(prec: PropertyRecord, literal: LiteralValue, qs: List[Qualifier]): Entity
   def localStatementsByPropId(propId: PropertyId) = {
     localStatements.filter(_.propertyRecord.id == propId)
   }
+  def withOkShapes(shapes: Set[ShapeLabel]): Entity
+
 }
 
 case class ItemId(id: String, iri: IRI) extends EntityId {
@@ -87,7 +92,8 @@ case class Item(
                  aliases: Map[Lang,String],
                  siteIri: String = Value.siteDefault,
                  localStatements: List[LocalStatement],
-                 siteLinks: List[SiteLink]
+                 siteLinks: List[SiteLink],
+                 okShapes: Set[ShapeLabel] = Set()
                ) extends Entity {
 
   lazy val entityId = itemId
@@ -103,6 +109,8 @@ case class Item(
       localStatements = this.localStatements :+ LocalStatement(prec,literal,qs)
     )
 
+  override def withOkShapes(shapes: Set[ShapeLabel]): Entity = this.copy(okShapes = shapes)
+
 }
 
 case class Property(
@@ -113,7 +121,8 @@ case class Property(
                      aliases: Map[Lang,String],
                      siteIri: String = Value.siteDefault,
                      localStatements: List[LocalStatement] = List(),
-                     datatype: Datatype = Datatype.defaultDatatype
+                     datatype: Datatype = Datatype.defaultDatatype,
+                     okShapes: Set[ShapeLabel] = Set()
                    ) extends Entity {
 
   lazy val entityId = propertyId
@@ -131,6 +140,10 @@ case class Property(
     this.copy(
       localStatements = this.localStatements :+ LocalStatement(prec,literal,qs)
     )
+
+  override def withOkShapes(shapes: Set[ShapeLabel]): Entity =
+    this.copy(okShapes = shapes)
+
 }
 
 sealed abstract class LiteralValue extends Value

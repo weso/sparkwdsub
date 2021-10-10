@@ -14,6 +14,7 @@ class SparkJobConfig(arguments: Seq[String]) extends ScallopConf(arguments) with
   val jobInputDump = opt[String](required = true, name = "dump", descr = "Select the input dump by entering the path")
   val jobInputSchema = opt[String](required = true, name = "schema", descr = "Select the input schema by entering the path")
   val jobOutputDir = opt[String](required = true, name = "out", descr = "Select the output directory. Please remove the trailing slash")
+  val keepShapes = opt[Boolean](required = false, default = Some(true), name = "keep_shapes", descr = "Show the shapes")
 
   printHelp()
   verify()
