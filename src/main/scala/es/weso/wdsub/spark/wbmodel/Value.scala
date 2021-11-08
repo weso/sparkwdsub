@@ -68,7 +68,7 @@ sealed abstract class Entity extends Value {
   val vertexId: VertexId
   val entityId: EntityId
   val localStatements: List[LocalStatement]
-  val okShapes: Set[ShapeLabel]
+  // val okShapes: Set[ShapeLabel]
 
   def withLocalStatement(prec: PropertyRecord, literal: LiteralValue, qs: List[Qualifier]): Entity
   def localStatementsByPropId(propId: PropertyId) = {

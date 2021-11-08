@@ -16,8 +16,8 @@ object ValueWriter {
     //    val jsonSerializer = new JsonSerializer(os)
     //    jsonSerializer.open()
     val str = entity2entityDocument(v) match {
-      case id: ItemDocument => JsonSerializer.getJsonString(id) ++ printShapes(showShapes, v.okShapes)
-      case pd: PropertyDocument => JsonSerializer.getJsonString(pd) ++ printShapes(showShapes, v.okShapes)
+      case (id: ItemDocument,okShapes) => JsonSerializer.getJsonString(id) ++ printShapes(showShapes, okShapes)
+      case (pd: PropertyDocument, okShapes) => JsonSerializer.getJsonString(pd) ++ printShapes(showShapes, okShapes)
       case _ => ""
     }
     str
@@ -30,7 +30,7 @@ object ValueWriter {
     } else ""
   }
 
-  def entity2entityDocument(v: Entity): EntityDocument = v match {
+  def entity2entityDocument(v: Entity): (EntityDocument, Set[ShapeLabel]) = v match {
     case i: Item => {
       val ed = new ItemDocumentImpl(
         cnvItemId(i.itemId),
@@ -41,7 +41,7 @@ object ValueWriter {
         cnvSiteLinks(i.siteLinks).asJava,
         0L
       )
-      ed
+      (ed,i.okShapes)
     }
     case p: Property => {
       val pd = new PropertyDocumentImpl(
@@ -53,7 +53,7 @@ object ValueWriter {
         cnvDatatype(p.datatype),
         0L
       )
-      pd
+      (pd,p.okShapes)
     }
   }
 
