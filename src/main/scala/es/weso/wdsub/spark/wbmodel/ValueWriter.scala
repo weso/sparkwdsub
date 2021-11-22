@@ -11,7 +11,6 @@ import scala.collection.JavaConverters._
 object ValueWriter {
 
   def entity2JsonStr(v: Entity, showShapes: Boolean): String = {
-
     val os = new ByteArrayOutputStream()
     //    val jsonSerializer = new JsonSerializer(os)
     //    jsonSerializer.open()

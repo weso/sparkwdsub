@@ -111,8 +111,8 @@ case class Shaped[VD,L,E,P](
 }
 
 object Shaped {
-
-  def empty[VD,L,E,P](v: VD): Shaped[VD,L,E,P] =
+ 
+  def empty[VD,L,E,P](v: VD): Shaped[VD,L,E,P] = 
     Shaped(v,Map())
 
 }
