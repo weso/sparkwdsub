@@ -1,14 +1,14 @@
-package es.weso.pschema 
+package es.weso.wdsub.spark.pschema 
 
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions._
 import com.github.mrpowers.spark.fast.tests._
 import munit._
-import es.weso.simpleshex._
-import es.weso.wbmodel.Value._
-import es.weso.wbmodel._
-import es.weso.graphxhelpers.GraphBuilder._
+import es.weso.wdsub.spark.simpleshex._
+import es.weso.wdsub.spark.wbmodel.Value._
+import es.weso.wdsub.spark.wbmodel._
+import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
 import org.apache.spark.graphx.VertexRDD
 import es.weso.rbe.interval._
 import scala.collection.immutable.SortedSet

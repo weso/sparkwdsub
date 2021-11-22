@@ -1,9 +1,10 @@
-prefix wde: <http://www.wikidata.org/entity/>
+PREFIX wde: <http://www.wikidata.org/entity/>
+PREFIX :    <http://example.org/>
 
-# Defines humans in Wikidata
-Start = @<Human>
+start = @<Human>
 
 <Human> EXTRA wde:P31 {
- wde:P31 @<HumanCode>
+  wde:P31  @<HumanType> ;
 }
-<HumanCode> [ wde:Q5 ]
+
+<HumanType> [ wde:Q5 ] 

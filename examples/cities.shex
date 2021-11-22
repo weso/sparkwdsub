@@ -1,11 +1,10 @@
-prefix wde: <http://www.wikidata.org/entity/>
+PREFIX wde: <http://www.wikidata.org/entity/>
+PREFIX :    <http://example.org/>
 
-# Defines Cities in Wikidata
-Start = @<City>
+start = @<Cities>
 
-<City> EXTRA wde:P31 {
- wde:P31 @<CityCode>  
+<Cities> EXTRA wde:P31 {
+  wde:P31  @<CityType> ;
 }
 
-<CityCode> [ wde:Q515 ]
-
+<CityType> [ wde:Q515 ] 

@@ -1,10 +1,10 @@
-package es.weso.pschema
+package es.weso.wdsub.spark.pschema
 
-import es.weso.simpleshex._
-import es.weso.wbmodel._
-import es.weso.wbmodel.Value._
+import es.weso.wdsub.spark.simpleshex._
+import es.weso.wdsub.spark.wbmodel._
+import es.weso.wdsub.spark.wbmodel.Value._
 import es.weso.rbe.interval._
-import es.weso.graphxhelpers.GraphBuilder._
+import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
 import es.weso.rdf.nodes._
 
 class SampleSchemas extends PSchemaSuite {
