@@ -1,0 +1,10 @@
+PREFIX wde: <http://www.wikidata.org/entity/>
+PREFIX :    <http://example.org/>
+
+start = @<Cities>
+
+<Cities> EXTRA wde:P31 {
+  wde:P31  @<CityType> ;
+}
+
+<CityType> [ wde:Q515 ] 

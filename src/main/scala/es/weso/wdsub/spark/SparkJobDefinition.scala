@@ -20,6 +20,7 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   val date = Calendar.getInstance().getTime();
   val dateFormat = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
   val strDate = dateFormat.format(date);
+  val keepShapes: Boolean = sparkJobConfig.keepShapes.apply()
   resultFile.jobName = sparkJobConfig.jobName.apply()
   resultFile.jobDate = strDate
 
@@ -88,7 +89,7 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   // ------- UTILITY METHODS ---------
 
   def graph2rdd(g: Graph[Entity,Statement]): RDD[String] =
-    g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_, sparkJobConfig.keepShapes.apply()))
+    g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_, keepShapes)) 
 
   def filterEdges(t: EdgeTriplet[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement]): Boolean = {
     t.srcAttr.okShapes.nonEmpty

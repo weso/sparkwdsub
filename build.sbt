@@ -76,7 +76,7 @@ assemblyMergeStrategy in assembly := {
 
 lazy val app = (project in file("."))
   .settings(
-    assembly / mainClass := Some("es.weso.wqsub.spark.Main"),
+    assembly / mainClass := Some("es.weso.wdsub.spark.Main"),
     assembly / assemblyJarName := "sparkwdsub.jar",
   )
 
