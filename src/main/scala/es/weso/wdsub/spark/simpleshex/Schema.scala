@@ -34,6 +34,13 @@ case class Schema(
    }
  }
 
+ def checkLocalCoded(label: ShapeLabel, entity: Entity): Either[ReasonCode, Set[ShapeLabel]] = {
+   get(label) match {
+     case None => Left(Reason.shapeNotFound)
+     case Some(se) => se.checkLocalCoded(entity, label, this)
+   }
+ }
+
  def checkNeighs(
    label: ShapeLabel, 
    neighs: Bag[(PropertyId,ShapeLabel)],
@@ -42,6 +49,17 @@ case class Schema(
    get(label) match {
      case None => Left(ShapeNotFound(label,this))
      case Some(se) => se.checkNeighs(neighs, failed, this)
+   }
+ }
+
+ def checkNeighsCoded(
+   label: ShapeLabel, 
+   neighs: Bag[(PropertyId,ShapeLabel)],
+   failed: Set[(PropertyId, ShapeLabel)]
+   ): Either[ReasonCode, Unit] = {
+   get(label) match {
+     case None => Left(Reason.shapeNotFound)
+     case Some(se) => se.checkNeighsCoded(neighs, failed, this)
    }
  }
 

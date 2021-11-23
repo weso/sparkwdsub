@@ -113,6 +113,70 @@ sealed abstract class TripleExpr extends Product with Serializable {
       Left(ErrorsMatching(errs))
   } */
 
+
+
+
+def checkLocalCoded(
+    entity: Entity, 
+    fromLabel: ShapeLabel,
+    closed: Boolean,
+    extra: List[PropertyId]
+   ): Either[ReasonCode, Set[ShapeLabel]] = 
+   if (entity == null) Left(Reason.nullEntity)
+   else {
+    val cl: Either[ReasonCode,Set[ShapeLabel]] = this match {
+     case tc: TripleConstraint => {
+       val clo: Either[ReasonCode, Set[ShapeLabel]] = 
+        tc.checkLocalOpenCoded(entity,fromLabel) match {
+         case Left(err) => Left(err)
+         case Right(Left(s)) => Right(s)
+         case Right(Right((p,matches,failed))) => 
+          if (failed == 0 || extra.contains(p)) Right(Set())
+          else Left(Reason.notAllowedNotInExtra)
+       }
+       /* println(s"""|checkLocal for tripleConstraint
+                   |tripleConstraint: $tc
+                   |entity: $entity
+                   |fromLabel: $fromLabel
+                   |checkLocalOpen: ${tc.checkLocalOpen(entity,fromLabel)}
+                   |result: $clo
+                   |""".stripMargin) */
+       clo
+     } 
+     case EachOf(Nil) => Right(Set())
+     case EachOf(ts) => {
+       val results =
+          ts
+          .map(_.checkLocalOpenCoded(entity,fromLabel))
+          .sequence
+          .map(_.sequence)
+
+       /* println(s"""|checkLocal eachOfs
+                   |ts: $ts
+                   |results of checkLocal eachOfs: $results
+                   |""".stripMargin) */
+          
+
+       results match {
+         case Left(err) => Left(err)
+         case Right(e) => e match {
+            case Left(s) => Right(s)
+            case Right(tuples) => {
+              val withErrors = tuples.collect { case (p, _, failed) if failed > 0 => (p,failed)}
+              // Not allowed are triples that failed and that are not in EXTRA
+              val notAllowed = withErrors.filter { case (p,failed) => !extra.contains(p) } 
+              if (notAllowed.nonEmpty) Left(Reason.notAllowedNotInExtra)
+              else Right(Set())
+            }
+          }
+        }
+      }
+     case OneOf(Nil) => Right(Set())
+     case _ => Left(Reason.notImplemented)
+   }
+   cl
+  }
+
 }
 
 case class EachOf(exprs: List[TripleConstraint]) extends TripleExpr 
@@ -158,6 +222,30 @@ sealed abstract class TripleConstraint extends TripleExpr with Serializable with
          else Left(CardinalityError(tl.property,matches,min,max))
        }
     }
+
+  def checkLocalOpenCoded(
+    entity: Entity, 
+    fromLabel: ShapeLabel
+    ): Either[ReasonCode, Either[Set[ShapeLabel], (PropertyId, Int,Int)]] = 
+    this match {
+       case tr: TripleConstraintRef => Right(Left(Set(fromLabel)))
+       case tl: TripleConstraintLocal => {
+        val found = entity.localStatementsByPropId(tl.property)
+/*        println(s"""|Local statements: ${entity.localStatements}
+                    |Property: ${tl.property}
+                    |found: $found
+                    |""".stripMargin) */
+        val matches: Int = 
+          found.map(s => 
+            tl.value
+            .matchLocal(s.literal))
+            .collect { case Right(()) => () }.size
+        val failed = found.size - matches
+        if (min <= matches && max >= matches) Right(Right(tl.property,matches,failed))
+         else Left(Reason.cardinalityError)
+       }
+    }
+
 }
 
 case class TripleConstraintRef(

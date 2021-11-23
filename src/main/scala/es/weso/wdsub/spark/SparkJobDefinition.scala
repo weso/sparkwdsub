@@ -1,7 +1,7 @@
 package es.weso.wdsub.spark
 
 import es.weso.wdsub.spark.pschema.{PSchema, Shaped}
-import es.weso.wdsub.spark.simpleshex.{CompactFormat, Reason, Schema, ShapeLabel, Start}
+import es.weso.wdsub.spark.simpleshex.{CompactFormat, Reason, ReasonCode, Schema, ShapeLabel, Start}
 import es.weso.wdsub.spark.wbmodel.{Entity, LineParser, PropertyId, Statement, ValueWriter}
 import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
 import org.apache.spark.rdd.RDD
@@ -21,6 +21,8 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   val dateFormat = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
   val strDate = dateFormat.format(date);
   val keepShapes: Boolean = sparkJobConfig.keepShapes.apply()
+  val keepErrors: Boolean = sparkJobConfig.keepErrors.apply()
+
   resultFile.jobName = sparkJobConfig.jobName.apply()
   resultFile.jobDate = strDate
 
@@ -53,27 +55,39 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
 
   resultFile.jobResults += s"\n$schemaString"
 
-  val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] =
-    PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
+  val result: RDD[String] = if (keepErrors) {
+   val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] =
+    PSchema[Entity, Statement, ShapeLabel, Reason, PropertyId](
       graph, initialLabel, 20, false)(
       schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
     )
-
-  val subGraph =
+   val subGraph =
     validatedGraph
       .subgraph(filterEdges,filterVertices)
-
-  val result =
-    graph2rdd(
+   graph2rdd(
       subGraph
         .mapVertices{ case (_,v) => v.value.withOkShapes(v.okShapes) }
     )
+  } else {
+    val validatedGraph: Graph[Shaped[Entity,ShapeLabel,ReasonCode,PropertyId], Statement] =
+     PSchema[Entity, Statement, ShapeLabel, ReasonCode, PropertyId](
+      graph, initialLabel, 20, false)(
+      schema.checkLocalCoded,schema.checkNeighsCoded,schema.getTripleConstraints,_.id
+    )
+   val subGraph =
+    validatedGraph
+      .subgraph(filterEdges,filterVertices)
+
+   graph2rdd(
+      subGraph
+        .mapVertices{ case (_,v) => v.value.withOkShapes(v.okShapes) })
+  }
 
 
   // Get the job execution time in seconds.
   val jobExecutionTime = (System.nanoTime - jobStartTime) / 1e9d
-  val jobCores = java.lang.Runtime.getRuntime.availableProcessors * ( sparkContext.statusTracker.getExecutorInfos.length -1 )
-  val jobMem = java.lang.Runtime.getRuntime.totalMemory() * ( sparkContext.statusTracker.getExecutorInfos.length -1 )
+  val jobCores = java.lang.Runtime.getRuntime.availableProcessors * ( sparkContext.statusTracker.getExecutorInfos.length - 1 )
+  val jobMem = java.lang.Runtime.getRuntime.totalMemory() * ( sparkContext.statusTracker.getExecutorInfos.length - 1 )
 
   resultFile.time = jobExecutionTime.toString
   resultFile.cores = jobCores.toString
@@ -91,11 +105,20 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
   def graph2rdd(g: Graph[Entity,Statement]): RDD[String] =
     g.vertices.map(_._2).map(ValueWriter.entity2JsonStr(_, keepShapes)) 
 
-  def filterEdges(t: EdgeTriplet[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement]): Boolean = {
+
+  /* def filterEdges(t: EdgeTriplet[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement]): Boolean = {
     t.srcAttr.okShapes.nonEmpty
   }
 
   def filterVertices(id: VertexId, v: Shaped[Entity,ShapeLabel,Reason,PropertyId]): Boolean = {
+    v.okShapes.nonEmpty
+  } */
+
+  def filterEdges[E](t: EdgeTriplet[Shaped[Entity,ShapeLabel,E,PropertyId], Statement]): Boolean = {
+    t.srcAttr.okShapes.nonEmpty
+  }
+
+  def filterVertices[E](id: VertexId, v: Shaped[Entity,ShapeLabel,E,PropertyId]): Boolean = {
     v.okShapes.nonEmpty
   }
 
