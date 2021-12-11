@@ -1,21 +1,20 @@
 name := "sparkWDSub"
 version := "1.0"
 
-scalaVersion := "2.12.10"
+scalaVersion := "2.12.15"
 
 val sparkVersion            = "3.1.2"
 val wikidataToolkitVersion  = "0.12.1"
 val jacksonVersion          = "2.10.0"
 // val wdsubVersion            = "0.0.16"
-val shexsVersion            = "0.1.97"
-val srdfVersion             = "0.1.104"
-val utilsVersion            = "0.1.99"
-val documentVersion         = "0.0.33"
-val catsVersion             = "2.6.1"
-val declineVersion          = "2.1.0"
+val shexsVersion            = "0.1.104"
+val srdfVersion             = "0.1.105"
+val utilsVersion            = "0.2.2"
+val catsVersion             = "2.7.0"
+val declineVersion          = "2.2.0"
 val sparkFastTestsVersion   = "1.0.0"
-val munitVersion            = "0.7.27"
-val munitEffectVersion      = "1.0.5"
+val munitVersion            = "0.7.29"
+val munitEffectVersion      = "1.0.7"
 
 lazy val MUnitFramework = new TestFramework("munit.Framework")
 
@@ -37,18 +36,18 @@ libraryDependencies ++= Seq(
   "org.wikidata.wdtk" % "wdtk-util"        % wikidataToolkitVersion,
 
   // Jackson dependencies.
-  "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
-  "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
-  "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
+  "com.fasterxml.jackson.core"   % "jackson-databind" % jacksonVersion,
+  "com.fasterxml.jackson.core"   % "jackson-core" % jacksonVersion,
+  "com.fasterxml.jackson.core"   % "jackson-annotations" % jacksonVersion,
   "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.2",
 
   // WESO components dependencies.
-  "es.weso" %% "document"     % documentVersion,
   "es.weso" %% "srdf"         % srdfVersion,
   "es.weso" %% "srdfjena"     % srdfVersion,
   "es.weso" %% "srdf4j"       % srdfVersion,
   "es.weso" %% "utils"        % utilsVersion,
   "es.weso" %% "shex"         % shexsVersion,
+  "es.weso" %% "wshex"        % shexsVersion,
 
   // Cats dependencies.
   "org.typelevel" %% "cats-core"    % catsVersion,
