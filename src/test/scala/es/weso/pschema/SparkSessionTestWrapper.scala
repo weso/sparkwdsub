@@ -1,4 +1,4 @@
-package es.weso.wdsub.spark.pschema
+package es.weso.pschema
 
 import org.apache.spark.sql.SparkSession
 

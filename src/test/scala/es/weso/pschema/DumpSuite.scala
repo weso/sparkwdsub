@@ -1,26 +1,15 @@
-package es.weso.wdsub.spark.pschema 
+package es.weso.pschema
 
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions._
 import com.github.mrpowers.spark.fast.tests._
-import munit._
-import es.weso.wdsub.spark.simpleshex._
-import es.weso.wdsub.spark.wbmodel.Value._
+import es.weso.wbmodel._
+import es.weso.wdsub.spark.pschema.{PSchema, Shaped}
 import es.weso.wdsub.spark.wbmodel._
-import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
-import org.apache.spark.graphx.VertexRDD
-import es.weso.rbe.interval._
-import scala.collection.immutable.SortedSet
-import es.weso.rdf.nodes._
-import DumpUtils._
-import org.apache.spark.rdd.RDD
+import es.weso.wshex._
+import munit._
 
 
 class DumpSuite extends FunSuite 
   with SparkSessionTestWrapper with DatasetComparer with RDDComparer {
-
-  import spark.implicits._
 
   lazy val sc = spark.sparkContext
   lazy val lineParser = LineParser()

@@ -3,8 +3,8 @@ package es.weso.wdsub.spark.wbmodel
 import es.weso.rdf.nodes.IRI
 import org.apache.spark.graphx.Edge
 import org.wikidata.wdtk.datamodel.interfaces.{EntityDocument, StatementDocument, Statement => WDStatement, Value => WDValue, _}
-
 import scala.jdk.CollectionConverters._
+import es.weso.wbmodel._
 
 object DumpUtils {
 
@@ -38,13 +38,13 @@ object DumpUtils {
      case id: ItemDocument => { 
       val label = Option(id.findLabel("en")).getOrElse("")
       (vertexId, 
-       Item(ItemId(id.getEntityId().getId(), IRI(id.getEntityId().getIri())), vertexId, Map(Lang("en") -> label), Map(), Map(), id.getEntityId().getSiteIri(), List(), List())
+       Item(ItemId(id.getEntityId().getId(), IRI(id.getEntityId().getIri())), VertexId(vertexId), Map(Lang("en") -> label), Map(), Map(), id.getEntityId().getSiteIri(), List(), List())
       ) 
       }
      case pd: PropertyDocument => {
       val label = Option(pd.findLabel("en")).getOrElse("")
       (vertexId, 
-       Property(PropertyId(pd.getEntityId().getId(), IRI(pd.getEntityId().getIri())), vertexId, Map(Lang("en") -> label), Map(), Map(), pd.getEntityId().getSiteIri(), List())
+       Property(PropertyId(pd.getEntityId().getId(), IRI(pd.getEntityId().getIri())), VertexId(vertexId), Map(Lang("en") -> label), Map(), Map(), pd.getEntityId().getSiteIri(), List())
       )
      }
     }
@@ -60,7 +60,7 @@ object DumpUtils {
       val pVertex = mkVertexId(wdpid)
       val valueId = mkVertexId(ev)
       // TODO. Collect qualifiers
-      Some(Edge(subjectId, valueId, Statement(PropertyRecord(pid,pVertex))))
+      Some(Edge(subjectId, valueId, Statement(PropertyRecord(pid,VertexId(pVertex)))))
     }
     case _ => None
    }

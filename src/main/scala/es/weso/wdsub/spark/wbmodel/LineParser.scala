@@ -1,10 +1,10 @@
 package es.weso.wdsub.spark.wbmodel
 
+import es.weso.wbmodel._
 import org.wikidata.wdtk.datamodel.helpers.JsonDeserializer
 import org.apache.spark.graphx._
 import DumpUtils._
 import org.apache.spark.SparkContext
-
 import java.nio.file.Path
 import org.apache.spark.rdd.RDD
 import org.apache.log4j.Logger
@@ -14,7 +14,7 @@ import org.apache.spark.storage.StorageLevel
 case class LineParser(site: String = "http://www.wikidata.org/entity/") {
 
   lazy val jsonDeserializer = new JsonDeserializer(site)
-  lazy val noEntity: Entity = Item(ItemId("Q0", IRI(site + "Q0")), 0L, Map(), Map(), Map(),site,List(),List())
+  lazy val noEntity: Entity = Item(ItemId("Q0", IRI(site + "Q0")), VertexId(0L), Map(), Map(), Map(),site,List(),List())
   @transient lazy val log = Logger.getLogger(getClass.getName)
 
   def line2Entity(line: String): (Long,Entity) = try {

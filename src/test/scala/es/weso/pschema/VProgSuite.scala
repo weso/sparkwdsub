@@ -1,15 +1,15 @@
-package es.weso.wdsub.spark.pschema 
+package es.weso.pschema
 
-import munit._
-import es.weso.wdsub.spark.simpleshex._
-import es.weso.wdsub.spark.simpleshex.ShapeExpr._
-import es.weso.wdsub.spark.wbmodel.Value._
-import es.weso.wdsub.spark.wbmodel._
-import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
-import org.apache.spark.graphx.VertexRDD
 import es.weso.rbe.interval._
-import scala.collection.immutable.SortedSet
 import es.weso.rdf.nodes._
+import es.weso.wbmodel.Value._
+import es.weso.wbmodel._
+import es.weso.wdsub.spark.pschema._
+import es.weso.wdsub.spark.wbmodel.ValueBuilder._
+import es.weso.wshex.ShapeExpr._
+import es.weso.wshex._
+import munit._
+
 
 class VProgSuite extends FunSuite {
 

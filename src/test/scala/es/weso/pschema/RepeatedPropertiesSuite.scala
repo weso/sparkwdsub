@@ -1,12 +1,12 @@
-package es.weso.wdsub.spark.pschema
+package es.weso.pschema
 
-import es.weso.wdsub.spark.simpleshex._
-import es.weso.wdsub.spark.simpleshex.ShapeExpr._
-import es.weso.wdsub.spark.wbmodel._
-import es.weso.wdsub.spark.wbmodel.Value._
 import es.weso.rbe.interval._
+import es.weso.wbmodel.Value._
+import es.weso.wbmodel._
 import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
-import es.weso.rdf.nodes._
+import es.weso.wdsub.spark.wbmodel.ValueBuilder._
+import es.weso.wshex.ShapeExpr._
+import es.weso.wshex._
 
 class RepeatedPropsSuite extends PSchemaSuite {
 

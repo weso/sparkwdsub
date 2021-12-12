@@ -1,14 +1,14 @@
 package es.weso.wdsub.spark
 
+import es.weso.wbmodel.{Entity, PropertyId, Statement, ValueWriter}
 import es.weso.wdsub.spark.pschema.{PSchema, Shaped}
-import es.weso.wdsub.spark.simpleshex.{CompactFormat, Reason, ReasonCode, Schema, ShapeLabel, Start}
-import es.weso.wdsub.spark.wbmodel.{Entity, LineParser, PropertyId, Statement, ValueWriter}
+import es.weso.wdsub.spark.wbmodel.LineParser
+import es.weso.wshex._
 import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.{SparkConf, SparkContext}
 
-import java.nio.file.Paths
 import java.text.SimpleDateFormat
 import java.util.Calendar
 

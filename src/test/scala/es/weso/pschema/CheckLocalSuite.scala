@@ -1,20 +1,9 @@
-package es.weso.wdsub.spark.pschema 
+package es.weso.pschema
 
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions._
-import com.github.mrpowers.spark.fast.tests._
+import es.weso.wshex._
 import munit._
-import es.weso.wdsub.spark.simpleshex._
-import es.weso.wdsub.spark.wbmodel.Value._
-import es.weso.wdsub.spark.wbmodel._
-import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
-import org.apache.spark.graphx.VertexRDD
-import es.weso.rbe.interval._
-import scala.collection.immutable.SortedSet
 import es.weso.rdf.nodes.{Lang => _, _}
-import DumpUtils._
-import org.apache.spark.rdd.RDD
+import es.weso.wbmodel._
 
 class CheckLocalSuite extends FunSuite {
 
@@ -60,8 +49,8 @@ class CheckLocalSuite extends FunSuite {
   val fromLabel = IRILabel(IRI("fromLabel"))
   val entity = 
     Item(
-      ItemId("Q515", IRI("http://www.wikidata.org/entity/Q515")), 
-      515L, 
+      ItemId("Q515", IRI("http://www.wikidata.org/entity/Q515")),
+      VertexId(515L),
       Map(Lang("en") -> "CityCode"), 
       Map(), 
       Map(), 
