@@ -21,6 +21,6 @@ class SparkTestSuite extends FunSuite
     val sourceRDD = spark.sparkContext.parallelize(Seq(("jose"),("li"))).map(_.toUpperCase())
     val expectedRDD = spark.sparkContext.parallelize(Seq(("JOSE"),("LI")))
     assertSmallRDDEquality(sourceRDD, expectedRDD)
-  }
+  } 
 
 }

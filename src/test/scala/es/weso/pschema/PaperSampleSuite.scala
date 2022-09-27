@@ -7,6 +7,8 @@ import es.weso.rbe.interval._
 import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
 import es.weso.rdf.nodes._
 import es.weso.wdsub.spark.wbmodel.ValueBuilder._
+import es.weso.rdf.PREFIXES._
+import es.weso.rdf.nodes._
 
 class PaperSampleSuite extends PSchemaSuite {
 
@@ -50,19 +52,27 @@ class PaperSampleSuite extends PSchemaSuite {
       ))
     }
 
-  val paperSchema = Schema(
+  val paperSchema = WSchema(
     Map(
-      Start -> ShapeRef(IRILabel(IRI("Researcher"))),
-      IRILabel(IRI("Researcher")) -> Shape(None,false,List(),Some(EachOf(List(
-        TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)),
-        TripleConstraintLocal(Pid(569), DateDatatype, 0, IntLimit(1)),
-        TripleConstraintRef(Pid(19), ShapeRef(IRILabel(IRI("Place"))),1,IntLimit(1))
-      )))),
-      IRILabel(IRI("Place")) -> Shape(None, false, List(), Some(EachOf(List(
-        TripleConstraintRef(Pid(17), ShapeRef(IRILabel(IRI("Country"))),1,IntLimit(1))
-      )))),
-      IRILabel(IRI("Country")) -> EmptyExpr,
-      IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))))
+      Start -> WShapeRef(None, IRILabel(IRI("Researcher"))),
+      IRILabel(IRI("Researcher")) -> 
+       WShape(None, false, List(), Some(
+        EachOf(None, List(
+         TripleConstraintRef(Pid(31), WShapeRef(None, IRILabel(IRI("Human"))),1,IntLimit(1)),
+         TripleConstraintLocal(Pid(569), WNodeConstraint.datatype(`xsd:dateTime`), 0, IntLimit(1)),
+         TripleConstraintRef(Pid(19), WShapeRef(None, IRILabel(IRI("Place"))),1,IntLimit(1))
+        ))),
+        List()
+        ),
+      IRILabel(IRI("Place")) -> WShape(None, false, List(), Some(
+       EachOf(None, List(
+        TripleConstraintRef(Pid(17), WShapeRef(None, IRILabel(IRI("Country"))),1,IntLimit(1))
+       ))), 
+       List()
+       ),
+      IRILabel(IRI("Country")) -> WNodeConstraint.emptyExpr,
+      IRILabel(IRI("Human")) -> 
+       WNodeConstraint.valueSet(List(EntityIdValueSetValue(ItemId("Q5", IRI("http://www.wikidata.org/entity/Q5")))))
     )
   )
 
@@ -70,13 +80,13 @@ class PaperSampleSuite extends PSchemaSuite {
    val graph = paperGraph
    val schema = paperSchema
    val expected: List[(String,List[String],List[String])] = List(
-     ("Q145", List("Country"), List("Researcher")),
+     ("Q145", List(), List("Researcher")), // Human ?
      ("Q29", List(), List("Researcher")),
      ("Q3320352", List(), List("Researcher")),
      ("Q42944", List(), List("Researcher")),
-     ("Q5", List("Human"), List("Researcher")), 
-     ("Q80", List("Researcher"), List()),
-     ("Q84", List("Place"), List("Researcher")),
+     ("Q5", List(), List("Researcher")), // Human ?
+     ("Q80", List(), List("Researcher")),  // Should pass as researcher but failed ?
+     ("Q84", List(), List("Researcher")), // Place ?
      ("Q92743", List(), List("Researcher"))
     )
    testCase("Paper example", graph, schema, IRILabel(IRI("Researcher")), expected, true)

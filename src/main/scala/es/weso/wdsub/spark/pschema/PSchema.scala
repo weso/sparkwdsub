@@ -306,16 +306,16 @@ object PSchema extends Serializable {
    *
    */
   def apply[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering](
-                                                                      graph: Graph[VD,ED],
-                                                                      initialLabel: L,
-                                                                      maxIterations: Int = Int.MaxValue,
-                                                                      verbose: Boolean = false
-                                                                    )
-                                                                    (checkLocal: (L, VD) => Either[E, Set[L]],
-                                                                     checkNeighs: (L, Bag[(P,L)], Set[(P,L)]) => Either[E, Unit],
-                                                                     getTripleConstraints: L => List[(P,L)],
-                                                                     cnvEdge: ED => P
-                                                                    ): Graph[Shaped[VD,L,E,P],ED] = {
+    graph: Graph[VD,ED],
+    initialLabel: L,
+    maxIterations: Int = Int.MaxValue,
+    verbose: Boolean = false
+    )
+    (checkLocal: (L, VD) => Either[E, Set[L]],
+     checkNeighs: (L, Bag[(P,L)], Set[(P,L)]) => Either[E, Unit],
+     getTripleConstraints: L => List[(P,L)],
+     cnvEdge: ED => P
+     ): Graph[Shaped[VD,L,E,P],ED] = {
     new PSchema[VD,ED,L,E,P](
       checkLocal,
       checkNeighs,

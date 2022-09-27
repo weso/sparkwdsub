@@ -1,20 +1,22 @@
 name := "sparkWDSub"
 version := "1.0"
 
-scalaVersion := "2.12.15"
+scalaVersion := "2.12.16"
 
-val sparkVersion            = "3.1.2"
-val wikidataToolkitVersion  = "0.12.1"
-val jacksonVersion          = "2.10.0"
+val sparkVersion            = "3.2.2"
 // val wdsubVersion            = "0.0.16"
-val shexsVersion            = "0.1.104"
-val srdfVersion             = "0.1.105"
-val utilsVersion            = "0.2.2"
-val catsVersion             = "2.7.0"
+val shexsVersion            = "0.2.16"
+val srdfVersion             = "0.1.122"
+val utilsVersion            = "0.2.25"
+
+val catsVersion             = "2.8.0"
 val declineVersion          = "2.2.0"
-val sparkFastTestsVersion   = "1.0.0"
+val jacksonVersion          = "2.13.3"
 val munitVersion            = "0.7.29"
 val munitEffectVersion      = "1.0.7"
+val sparkFastTestsVersion   = "1.0.0"
+val scallopVersion          = "4.0.4"
+val wikidataToolkitVersion  = "0.14.0"
 
 lazy val MUnitFramework = new TestFramework("munit.Framework")
 
@@ -39,7 +41,7 @@ libraryDependencies ++= Seq(
   "com.fasterxml.jackson.core"   % "jackson-databind" % jacksonVersion,
   "com.fasterxml.jackson.core"   % "jackson-core" % jacksonVersion,
   "com.fasterxml.jackson.core"   % "jackson-annotations" % jacksonVersion,
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.2",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.13.3",
 
   // WESO components dependencies.
   "es.weso" %% "srdf"         % srdfVersion,
@@ -65,10 +67,10 @@ libraryDependencies ++= Seq(
   "org.typelevel" %% "munit-cats-effect-3" % munitEffectVersion % Test,
 
   // CLI command parsing library.
-  "org.rogach" %% "scallop" % "4.0.4"
+  "org.rogach" %% "scallop" % scallopVersion
 )
 
-assemblyMergeStrategy in assembly := {
+assembly / assemblyMergeStrategy := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
   case x => MergeStrategy.first
 }

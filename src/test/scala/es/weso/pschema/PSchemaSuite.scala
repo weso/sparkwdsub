@@ -7,6 +7,7 @@ import es.weso.wdsub.spark.pschema.{PSchema, Shaped}
 import es.weso.wshex._
 import munit._
 import org.apache.spark.graphx._
+import es.weso.utils.VerboseLevel
 
 
 class PSchemaSuite extends FunSuite 
@@ -22,7 +23,7 @@ class PSchemaSuite extends FunSuite
   def testCase(
    name: String,
    gb: GraphBuilder[Entity,Statement], 
-   schema: Schema,
+   schema: WSchema,
    initialLabel: ShapeLabel,
    expected: List[(String, List[String], List[String])],
    verbose: Boolean,
@@ -53,7 +54,7 @@ class PSchemaSuite extends FunSuite
 
  def mkValidatedGraph(
   graph: Graph[Entity,Statement], 
-  schema: Schema, 
+  schema: WSchema, 
   initialLabel: ShapeLabel,
   maxIterations: Int,
   verbose: Boolean
@@ -78,7 +79,10 @@ class PSchemaSuite extends FunSuite
  )(implicit loc: munit.Location): Unit = {
  test(name) { 
   val graph = buildGraph(gb, spark.sparkContext)
-  Schema.unsafeFromString(schemaStr, format) match {
+  WSchema.unsafeFromString(
+   str = schemaStr, 
+   format = format, 
+   verbose = if (verbose) VerboseLevel.Debug else VerboseLevel.Nothing) match {
     case Left(err) => fail(s"Error parsing schema: $err")
     case Right(schema) => 
       {

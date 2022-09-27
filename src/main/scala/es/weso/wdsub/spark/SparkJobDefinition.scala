@@ -8,9 +8,12 @@ import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
+import es.weso.collection.Bag
+
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import es.weso.utils.VerboseLevel
 
 @SerialVersionUID(100L)
 class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
@@ -49,17 +52,24 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
 
   val initialLabel = Start
   var schemaString = ""
-  sparkContext.textFile(sparkJobConfig.jobInputSchema.apply()).collect().foreach({ line => schemaString += line + "\n"})
-  val schema = Schema.unsafeFromString2(schemaString, CompactFormat)
+  sparkContext.textFile(sparkJobConfig.jobInputSchema.apply()).collect().foreach({ 
+   line => schemaString += line + "\n"
+  })
+
+  val schema = WSchema.unsafeFromString(str = schemaString, format = WShExFormat.CompactWShExFormat, verbose = VerboseLevel.Nothing).getOrElse(WSchema.empty)
   //val schema = Schema.unsafeFromPath(Paths.get(sparkJobConfig.jobInputSchema.apply()), CompactFormat)
 
   resultFile.jobResults += s"\n$schemaString"
 
   val result: RDD[String] = if (keepErrors) {
+
    val validatedGraph: Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] =
     PSchema[Entity, Statement, ShapeLabel, Reason, PropertyId](
       graph, initialLabel, 20, false)(
-      schema.checkLocal,schema.checkNeighs,schema.getTripleConstraints,_.id
+      schema.checkLocal,
+      schema.checkNeighs,
+      schema.getTripleConstraints,
+      _.id
     )
    val subGraph =
     validatedGraph
@@ -69,10 +79,16 @@ class SparkJobDefinition(sparkJobConfig: SparkJobConfig) extends Serializable {
         .mapVertices{ case (_,v) => v.value.withOkShapes(v.okShapes) }
     )
   } else {
+    val checkLocalCoded: (ShapeLabel, Entity) => Either[ReasonCode, Set[ShapeLabel]] = (l,e) => schema.checkLocalCoded(l,e)
+    val checkNeighsCoded: (ShapeLabel, Bag[(PropertyId, ShapeLabel)], Set[(PropertyId, ShapeLabel)]) => Either[ReasonCode, Unit] = ???
+    val getTripleConstraints: ShapeLabel => List[(PropertyId, ShapeLabel)] = ??? // schema.getTripleConstraints
     val validatedGraph: Graph[Shaped[Entity,ShapeLabel,ReasonCode,PropertyId], Statement] =
      PSchema[Entity, Statement, ShapeLabel, ReasonCode, PropertyId](
       graph, initialLabel, 20, false)(
-      schema.checkLocalCoded,schema.checkNeighsCoded,schema.getTripleConstraints,_.id
+      checkLocalCoded,
+      checkNeighsCoded,
+      getTripleConstraints,
+      _.id
     )
    val subGraph =
     validatedGraph

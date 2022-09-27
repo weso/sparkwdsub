@@ -4,6 +4,7 @@ import es.weso.wshex._
 import munit._
 import es.weso.rdf.nodes.{Lang => _, _}
 import es.weso.wbmodel._
+import es.weso.utils.VerboseLevel
 
 class CheckLocalSuite extends FunSuite {
 
@@ -16,7 +17,7 @@ class CheckLocalSuite extends FunSuite {
    expected: Set[ShapeLabel],
   )(implicit loc: munit.Location): Unit = {
  test(name) { 
-   Schema.unsafeFromString(schemaStr, CompactFormat).fold(
+   WSchema.unsafeFromString(str = schemaStr, format = WShExFormat.CompactWShExFormat, verbose = VerboseLevel.Nothing).fold(
      err => fail(s"Error parsing schema: $err\nSchema: $schemaStr"),
      schema => {
        schema.get(label) match {
