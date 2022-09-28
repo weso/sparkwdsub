@@ -6,6 +6,7 @@ import es.weso.wdsub.spark.pschema.{PSchema, Shaped}
 import es.weso.wdsub.spark.wbmodel._
 import es.weso.wshex._
 import munit._
+import es.weso.utils.VerboseLevel
 
 
 class DumpSuite extends FunSuite 
@@ -26,7 +27,11 @@ def testCase(
   val graph = lineParser.dump2Graph(dumpStr,sc)
   val initialLabel = Start
 
-  Schema.unsafeFromString(schemaStr, CompactFormat).fold(
+  WSchema.unsafeFromString(
+   str = schemaStr, 
+   format = WShExFormat.CompactWShExFormat, 
+   verbose = if (verbose) VerboseLevel.Debug else VerboseLevel.Nothing
+   ).fold(
     err => fail(s"Error parsing schema: $err"),
     schema => {
         val validatedGraph = 

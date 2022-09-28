@@ -9,25 +9,38 @@ import cats.data._
 import cats.implicits._
 import scala.reflect.ClassTag
 import org.apache.log4j.Logger
+import es.weso.wbmodel.{PropertyId => WBPropertyId}
 
 /**
  * Pregel Schema validation
  *
  * Converts a Graph[VD,ED] into a Graph[ShapedValue[VD, L, E, P], ED]
  *
- * where
+ * Type parameters:
  * L = labels in Schema
  * E = type of errors
  * P = type of property identifiers
+ * 
+ * Parameters: 
+ *   checkLocal(label, vertex) returns checks if the shape expression associated with label 
+      can validate a node locally. 
+      It returns 
+      Left(err) if the node doesn't validate
+      Right(labels) if the node's validation depends on a set of labels. If that set is empty it just validates
+    checkNeighs(label, bag, failed) checks if the regular bag expression associated with `label` 
+      matches `bag`.
+      Failed contains a set of pairs (node, label) which have already failed
+    getTripleConstraints(label) returns the triple constraints associated with label in the schema
+    cnvEdge converts a node in the graph to a node       
  **/
 
 class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
-(checkLocal: (L, VD) => Either[E, Set[L]],
- checkNeighs: (L, Bag[(P,L)], Set[(P,L)]) => Either[E, Unit],
- getTripleConstraints: L => List[(P,L)],
- cnvEdge: ED => P,
- verbose: Boolean = false
-) extends Serializable {
+ (checkLocal: (L, VD) => Either[E, Set[L]],
+  checkNeighs: (L, Bag[(P,L)], Set[(P,L)]) => Either[E, Unit],
+  getTripleConstraints: L => List[(P,L)],
+  cnvEdge: ED => P,
+  verbose: Boolean = false
+ ) extends Serializable {
 
   // transient annotation avoids log to be serialized
   @transient lazy val log = Logger.getLogger(getClass.getName)
@@ -49,33 +62,38 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
     val newValue = msg.mmap.foldLeft(v){
       case (acc,(lbl,msgLabel)) => vProgLabel(acc,lbl,msgLabel)
     }
-    println(s"""|vProg(${id})
-                |Msg:    $msg
-                |Before: $v
-                |After:  $newValue
-                |""".stripMargin)
+    info(s"""|vProg(${id})
+             |Msg:    $msg
+             |Before: $v
+             |After:  $newValue
+             |""".stripMargin, 
+             verbose)
     newValue
   }
 
 
-  private def sendMsg(t: EdgeTriplet[Shaped[VD, L, E, P],ED]): Iterator[(VertexId, MsgMap[L, E, P])] = {
+  private def sendMsg(t: EdgeTriplet[Shaped[VD, L, E, P],ED]
+    ): Iterator[(VertexId, MsgMap[L, E, P])] = {
     val shapeLabels = t.srcAttr.unsolvedShapes // active shapes = waitingFor/pending
     val ls = shapeLabels.map(sendMessagesActive(_, t)).toIterator.flatten
     ls
   }
 
   private def sendMessagesActive(
-                                  activeLabel: L,
-                                  triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]): Iterator[(VertexId, MsgMap[L, E, P])] = {
+    activeLabel: L,
+    triplet: EdgeTriplet[Shaped[VD, L, E, P], ED]
+    ): Iterator[(VertexId, MsgMap[L, E, P])] = {
 
-    val tcs = getTripleConstraints(activeLabel).filter(_._1 == cnvEdge(triplet.attr))
+    val allTcs = getTripleConstraints(activeLabel)
+    val pTriplet: P = cnvEdge(triplet.attr)
+    val filteredTcs = allTcs.filter(_._1 == pTriplet)
     info(s"""|
-              |sendMessagesActive on label: ${activeLabel}
-             |TripleConstraints($activeLabel)={${getTripleConstraints(activeLabel).mkString(",")}}
-             |Triplet: ${triplet.srcAttr.value}-${cnvEdge(triplet.attr)}-${triplet.dstAttr.value})
-             |TCs: {${tcs.map(_.toString).mkString(",")}}
+             |sendMessagesActive on label: ${activeLabel}
+             |All tripleConstraints($activeLabel)={${allTcs.mkString(",")}}
+             |Triplet(src=${triplet.srcAttr.value}, attr=${pTriplet}, value=${triplet.dstAttr.value})
+             |Filtered tripleConstraints: {${filteredTcs.mkString(",")}}
              |""".stripMargin, verbose)
-    tcs.toIterator.map{
+    filteredTcs.toIterator.map{
       case (p,l) =>
         sendMessagesTripleConstraint(activeLabel, p, l, triplet)
     }.flatten
@@ -83,11 +101,11 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
 
 
   private def sendMessagesTripleConstraint(
-                                            pendingLabel: L,
-                                            p: P,
-                                            label: L,
-                                            triplet: EdgeTriplet[Shaped[VD, L, E, P],ED]
-                                          ): Iterator[(VertexId,MsgMap[L, E, P])] = {
+    pendingLabel: L,
+    p: P,
+    label: L,
+    triplet: EdgeTriplet[Shaped[VD, L, E, P],ED]
+    ): Iterator[(VertexId,MsgMap[L, E, P])] = {
     val obj = triplet.dstAttr
     val msgs =
       if (obj.okShapes contains label) {
@@ -95,12 +113,13 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
         List(
           (triplet.srcId, validatedMsg(pendingLabel, p, label, triplet.dstId))
         )
-      } else  if (obj.noShapes contains label) {
+      } else  
+     if (obj.noShapes contains label) {
         val es = NonEmptyList.fromListUnsafe(obj.failedShapes.map(_._2.toList).flatten.toList)
         List(
           (triplet.srcId, notValidatedMsg(pendingLabel,p,label,triplet.dstId, es))
         )
-      } else {
+     } else {
         //
         if (obj.unsolvedShapes contains label) {
           List(
@@ -113,7 +132,7 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
             (triplet.srcId, waitForMsg(pendingLabel,p,label,triplet.dstId))
           )
       }
-    info(s"""|Msgs for triplet (${triplet.srcId}-${triplet.attr}->${triplet.dstId}):
+    info(s"""|Msgs for triplet (src =${triplet.srcId}, attr=${triplet.attr}, dst=${triplet.dstId}):
              |${msgs.mkString("\n")}
              |""".stripMargin, verbose)
     msgs.toIterator
@@ -173,13 +192,24 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
 
       // When the message is that some neighs have been checked with a label
       case c: Checked[L,E,P] => acc.statusMap.get(lbl) match {
+        
         case None | Some(Pending) => acc.addOkShape(lbl)
+
         case Some(wf : WaitingFor[_, L,E, P]) => {
           val rest = wf.dependants.diff(c.dependantsChecked)
           if (rest.isEmpty) {
             val bag = mkBag(wf.validated ++ c.oks)
             val failed = mkFailed(wf.notValidated ++ c.failed)
-            checkNeighs(lbl, bag, failed) match {
+            val resultCheckNeighs = checkNeighs(lbl, bag, failed)
+            info(s"""|------------
+                     |checkNeighs(
+                     | lbl= $lbl, 
+                     | bag = $bag, 
+                     | failed = $failed) = 
+                     |   $resultCheckNeighs
+                     |-----------endCheckNeighs
+                     |""".stripMargin, verbose)
+            resultCheckNeighs match {
               case Left(e) => acc.addNoShape(lbl, NonEmptyList.one(e))
               case Right(()) => acc.addOkShape(lbl)
             }
@@ -212,7 +242,7 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
     NonEmptyList.fromListUnsafe(xs)
   }
 
-  private def mkBag[P: Ordering,L: Ordering](s: Set[DependTriple[P,L]]): Bag[(P,L)] =
+  private def mkBag[P: Ordering, L: Ordering](s: Set[DependTriple[P,L]]): Bag[(P,L)] =
     Bag.toBag(s.map { case t => (t.prop,t.label) })
 
   private def mkFailed[P,E,L](s: Set[(DependTriple[P,L], NonEmptyList[E])]): Set[(P,L)] =
@@ -221,30 +251,49 @@ class PSchema[VD: ClassTag, ED: ClassTag, L: Ordering, E, P: Ordering]
   private def checkRemaining(id: VertexId, v: Shaped[VD,L,E,P]): Shaped[VD,L,E,P] = {
     val v1 = v.pendingShapes.foldLeft(v) {
       case (acc,pendingLabel) => {
-        checkNeighs(pendingLabel, Bag.empty, Set()) match {
+        val resultCheckNeighs = checkNeighs(pendingLabel, Bag.empty, Set())
+            info(s"""|------------checkRemaining($id) pendingShapes with pendingLabel $pendingLabel
+                     |checkNeighs(
+                     | lbl= $pendingLabel, 
+                     | bag = {||}, 
+                     | failed = {}) = 
+                     |   $resultCheckNeighs
+                     |-----------endCheckNeighs
+                     |""".stripMargin, verbose)
+        resultCheckNeighs match {
           case Left(e) => v.addNoShape(pendingLabel,NonEmptyList.one(e))
           case Right(()) => v.addOkShape(pendingLabel)
         }
       }
     }
-    val v2 = v1.waitingShapes.foldLeft(v1) {
+    val result = v1.waitingShapes.foldLeft(v1) {
       case (acc,(lbl,wf: WaitingFor[_,L,E,P])) => {
         // We are assuming that the rest of dependants are valid, not sure if that's ok
         val bag = mkBag(wf.validated ++ wf.dependants)
         val failed = mkFailed(wf.notValidated)
-        checkNeighs(lbl, bag, failed) match {
+        val resultCheckNeighs = checkNeighs(lbl, bag, failed)
+        info(s"""|------------checkRemaining($id) waitingShapes with label $lbl
+                 |checkNeighs(
+                 | lbl= $lbl, 
+                 | bag = {||}, 
+                 | failed = {}) = 
+                 |   $resultCheckNeighs
+                 |-----------endCheckNeighs
+                 |""".stripMargin, verbose)
+        resultCheckNeighs match {
           case Left(e) => v.addNoShape(lbl,NonEmptyList.one(e))
           case Right(()) => v.addOkShape(lbl)
         }
       }
     }
-    println(s"""|checkRemaining(${id}-${v.value})
+
+    info(s"""|checkRemaining(${id}-${v.value})
                 |v  = ${v}
                 |v1 = ${v1}
-                |v2 = ${v2}
+                |result = ${result}
                 |                |
-                |""".stripMargin)
-    v2
+                |""".stripMargin, verbose)
+    result
   }
 
   def runPregel(graph: Graph[VD,ED],

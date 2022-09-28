@@ -8,6 +8,7 @@ import es.weso.wdsub.spark.pschema.{PSchema, Shaped}
 import es.weso.wdsub.spark.wbmodel.ValueBuilder._
 import es.weso.wshex._
 import munit._
+import es.weso.utils.VerboseLevel
 
 class SchemasSuite extends FunSuite 
   with SparkSessionTestWrapper with DatasetComparer with RDDComparer {
@@ -29,7 +30,7 @@ class SchemasSuite extends FunSuite
 )(implicit loc: munit.Location): Unit = {
  test(name) { 
   val graph = buildGraph(gb, spark.sparkContext)
-  Schema.unsafeFromString(schemaStr, CompactFormat).fold(
+  WSchema.unsafeFromString(str = schemaStr, format = WShExFormat.CompactWShExFormat, verbose = if (verbose) VerboseLevel.Debug else VerboseLevel.Nothing).fold(
     err => fail(s"Error parsing schema: $err"),
     schema => {
      val validatedGraph = 

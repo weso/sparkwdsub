@@ -31,10 +31,7 @@ class ScholiaTest extends PSchemaSuite {
  
  {
    val schemaStr: String = 
-    """|PREFIX xsd:    <http://www.w3.org/2001/XMLSchema#>
-       |PREFIX rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-       |PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-       |PREFIX :    <http://www.wikidata.org/entity/>
+    """|PREFIX :    <http://www.wikidata.org/entity/>
        |
        |start=@<publication>
        |
@@ -60,15 +57,12 @@ class ScholiaTest extends PSchemaSuite {
     ("Q42", List("author"), List("Start")),
     ("Q5", List("human"), List("Start"))
    )
-   testCaseStr("Scholia test with Q5", graph, schemaStr, CompactFormat, expected, true)
+   testCaseStr("Scholia test with Q5", graph, schemaStr, WShExFormat.CompactWShExFormat, expected, true)
   } 
 
   {
    val schemaStrElf: String = 
-    """|PREFIX xsd:    <http://www.w3.org/2001/XMLSchema#>
-       |PREFIX rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-       |PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-       |PREFIX :    <http://www.wikidata.org/entity/>
+    """|PREFIX :    <http://www.wikidata.org/entity/>
        |
        |start=@<publication>
        |
@@ -91,6 +85,7 @@ class ScholiaTest extends PSchemaSuite {
     ("Q42", List(), List("Start", "author")),
     ("Q5", List(), List("Start", "elf"))
    )
-   testCaseStr("Scholia test with Q174396", graph, schemaStrElf, CompactFormat, expected, true)
+   testCaseStr("Scholia test with Q174396", graph, schemaStrElf, 
+    WShExFormat.CompactWShExFormat, expected, true)
   } 
 }

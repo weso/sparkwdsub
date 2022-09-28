@@ -5,7 +5,7 @@ import es.weso.wbmodel.Value._
 import es.weso.wbmodel._
 import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
 import es.weso.wdsub.spark.wbmodel.ValueBuilder._
-import es.weso.wshex.ShapeExpr._
+import es.weso.wshex.WShapeExpr._
 import es.weso.wshex._
 
 class RepeatedPropsSuite extends PSchemaSuite {
@@ -24,7 +24,7 @@ class RepeatedPropsSuite extends PSchemaSuite {
       ))
   }
 
- val schema1 = Schema(
+ val schema1 = WSchema(
     Map(
       Start -> shapeRef("S"),
       label("S") -> shape(List(

@@ -80,13 +80,13 @@ class PaperSampleSuite extends PSchemaSuite {
    val graph = paperGraph
    val schema = paperSchema
    val expected: List[(String,List[String],List[String])] = List(
-     ("Q145", List(), List("Researcher")), // Human ?
+     ("Q145", List("Country"), List("Researcher")), 
      ("Q29", List(), List("Researcher")),
      ("Q3320352", List(), List("Researcher")),
      ("Q42944", List(), List("Researcher")),
-     ("Q5", List(), List("Researcher")), // Human ?
-     ("Q80", List(), List("Researcher")),  // Should pass as researcher but failed ?
-     ("Q84", List(), List("Researcher")), // Place ?
+     ("Q5", List("Human"), List("Researcher")), 
+     ("Q80", List("Researcher"), List()),  
+     ("Q84", List("Place"), List("Researcher")), 
      ("Q92743", List(), List("Researcher"))
     )
    testCase("Paper example", graph, schema, IRILabel(IRI("Researcher")), expected, true)

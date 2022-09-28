@@ -71,6 +71,6 @@ object ValueBuilder {
     Item(ItemId(qid, iri = mkSite(site, qid)), VertexId(id), Map(Lang("en") -> label), Map(), Map(), site, List(), List())
   }
 
-  def mkSite(base: String, localName: String) = IRI(base + "/" + localName)
+  def mkSite(base: String, localName: String) = IRI(base + localName)
 
 }

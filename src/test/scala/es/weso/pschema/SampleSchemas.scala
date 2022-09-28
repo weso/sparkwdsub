@@ -6,34 +6,43 @@ import es.weso.wbmodel.Value._
 import es.weso.rbe.interval._
 import es.weso.wdsub.spark.graphxhelpers.GraphBuilder._
 import es.weso.rdf.nodes._
+import es.weso.rdf.PREFIXES._
 import es.weso.wdsub.spark.wbmodel.ValueBuilder._
 
 class SampleSchemas extends PSchemaSuite {
 
-  val schemaResearcher = Schema(
+  val schemaResearcher = WSchema(
     Map(
-      Start -> ShapeRef(IRILabel(IRI("Researcher"))),
-      IRILabel(IRI("Researcher")) -> Shape(None,false,List(),Some(EachOf(List(
-        TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)),
-        TripleConstraintRef(Pid(19), ShapeRef(IRILabel(IRI("Place"))),1,IntLimit(1))
-      )))),
-      IRILabel(IRI("Place")) -> Shape(None, false, List(), Some(EachOf(List(
-        TripleConstraintRef(Pid(17), ShapeRef(IRILabel(IRI("Country"))),1,IntLimit(1))
-      )))),
-      IRILabel(IRI("Country")) -> EmptyExpr,
+      Start -> WShapeRef(None, IRILabel(IRI("Researcher"))),
+      IRILabel(IRI("Researcher")) -> WShape(None,false,List(),Some(
+      EachOf(None, List(
+        TripleConstraintRef(Pid(31), WShapeRef(None, IRILabel(IRI("Human"))),1,IntLimit(1)),
+        TripleConstraintRef(Pid(19), WShapeRef(None,IRILabel(IRI("Place"))),1,IntLimit(1))
+      ))), List()),
+      IRILabel(IRI("Place")) -> WShape(None, false, List(), Some(
+       EachOf(None, List(
+        TripleConstraintRef(Pid(17), WShapeRef(None, IRILabel(IRI("Country"))),1,IntLimit(1))
+      ))), List()),
+      IRILabel(IRI("Country")) -> WNodeConstraint.emptyExpr,
       IRILabel(IRI("Human")) -> 
-       ValueSet(None,List(
-         EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))
+       WNodeConstraint.valueSet(
+        List(
+         EntityIdValueSetValue(ItemId("Q5", IRI("http://www.wikidata.org/entity/Q5")))
        ))
     )
   )
 
-  val schemaSimple = Schema(
+  val schemaSimple = WSchema(
      Map(
-       IRILabel(IRI("Human")) -> ValueSet(None,List(EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5"))))) 
+       IRILabel(IRI("Human")) -> 
+        WNodeConstraint.valueSet(
+         List(EntityIdValueSetValue(ItemId("Q5", IRI("http://www.wikidata.org/entity/Q5"))))) 
      ), 
      start = Some(
-       Shape(None, false,List(), Some(TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1))))
+       WShape(None, false,List(), 
+        Some(TripleConstraintRef(Pid(31),   
+             WShapeRef(None, IRILabel(IRI("Human"))),1,IntLimit(1))), 
+       List())
      )
     )
 
@@ -95,10 +104,10 @@ class SampleSchemas extends PSchemaSuite {
      ("Q5", List("Human"), List("Start")), 
      ("Q80", List("Start"), List())
     )
-   testCase("Simple graph", graph, schema, Start, expected, false)
+   testCase("Simple graph", graph, schema, Start, expected, true)
 } 
 
-{
+ {
   val gb = for {
        instanceOf <- P(31, "instance of")
        timbl <- Q(80, "alice")
@@ -111,13 +120,15 @@ class SampleSchemas extends PSchemaSuite {
          triple(timbl, instanceOf, human)
        ))
      }
-    val schema = Schema(
+    val schema = WSchema(
      Map(
        IRILabel(IRI("Start")) -> 
-        Shape(None,false,List(),Some(TripleConstraintRef(Pid(31), ShapeRef(IRILabel(IRI("Human"))),1,IntLimit(1)))),
+         WShape(None,false,List(),Some(
+          TripleConstraintRef(Pid(31),  
+            WShapeRef(None, IRILabel(IRI("Human"))),1,IntLimit(1))), List()),
        IRILabel(IRI("Human")) -> 
-        ValueSet(None,List(
-          EntityIdValueSetValue(EntityId.fromIri(IRI("http://www.wikidata.org/entity/Q5")))
+        WNodeConstraint.valueSet(List(
+          EntityIdValueSetValue(ItemId("Q5", IRI("http://www.wikidata.org/entity/Q5")))
           )) 
      ))
     val expected = sort(List(
@@ -146,12 +157,15 @@ class SampleSchemas extends PSchemaSuite {
         triple(alice, knows, alice),
       ))
     }  
-   val schema = Schema(
+   val schema = WSchema(
       Map(
-      IRILabel(IRI("Person")) -> Shape(None, false, List(), Some(EachOf(List(
-        TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
-        TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
-      ))))
+      IRILabel(IRI("Person")) -> WShape(None, false, List(), Some(
+       EachOf(None, List(
+        TripleConstraintLocal(Pid(1), WNodeConstraint.datatype(
+          `xsd:string`), 1, IntLimit(1)),
+        TripleConstraintRef(Pid(2), WShapeRef(None, IRILabel(IRI("Person"))),0,Unbounded)
+      ))), 
+      List())
      ))
     val expected: List[(String,List[String], List[String])] = List(
          ("Q1", List("Person"),List()) 
@@ -179,14 +193,15 @@ class SampleSchemas extends PSchemaSuite {
         triple(dave, knows, dave)
       ))
     }  
-   val schema = Schema(
+   val schema = WSchema(
       Map(
       IRILabel(IRI("Person")) -> 
-       Shape(None, false, List(), 
-        Some(EachOf(List(
-         TripleConstraintLocal(Pid(1), StringDatatype, 1, IntLimit(1)),
-         TripleConstraintRef(Pid(2), ShapeRef(IRILabel(IRI("Person"))),0,Unbounded)
-        )))
+       WShape(None, false, List(), 
+        Some(EachOf(None, List(
+         TripleConstraintLocal(Pid(1), WNodeConstraint.datatype(`xsd:string`), 1, IntLimit(1)),
+         TripleConstraintRef(Pid(2), WShapeRef(None, IRILabel(IRI("Person"))),0,Unbounded)
+        ))),
+        List()
        )
      ))
       

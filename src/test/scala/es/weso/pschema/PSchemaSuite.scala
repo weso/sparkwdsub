@@ -31,8 +31,10 @@ class PSchemaSuite extends FunSuite
  )(implicit loc: munit.Location): Unit = {
  test(name) { 
   val graph = buildGraph(gb, spark.sparkContext)
-  val validatedGraph = mkValidatedGraph(graph,schema,initialLabel, maxIterations, verbose)
-  val vertices: List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
+  val validatedGraph = 
+    mkValidatedGraph(graph,schema,initialLabel, maxIterations, verbose)
+  val vertices: 
+    List[(Long,Shaped[Entity,ShapeLabel,Reason,PropertyId])] = 
         validatedGraph.vertices.collect().toList
 
   val result: List[(String, List[String], List[String])] = 
@@ -61,12 +63,14 @@ class PSchemaSuite extends FunSuite
   ): Graph[Shaped[Entity,ShapeLabel,Reason,PropertyId], Statement] = 
    PSchema[Entity,Statement,ShapeLabel,Reason, PropertyId](
            graph, initialLabel, maxIterations, verbose)(
-           schema.checkLocal _,
-           schema.checkNeighs _ ,
-           schema.getTripleConstraints _ ,
+           schema.checkLocal,
+           schema.checkNeighs,
+           schema.getTripleConstraints, 
            _.id
     )
 
+    
+    
 
  def testCaseStr(
    name: String,
