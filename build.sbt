@@ -20,6 +20,11 @@ val wikidataToolkitVersion  = "0.14.0"
 
 lazy val MUnitFramework = new TestFramework("munit.Framework")
 
+val Java11 = JavaSpec.temurin("11") 
+
+ThisBuild / githubWorkflowJavaVersions := Seq(Java11)
+
+
 libraryDependencies ++= Seq(
 
   // Spark dependencies.
