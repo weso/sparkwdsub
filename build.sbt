@@ -6,8 +6,7 @@ scalaVersion := "2.12.16"
 val sparkVersion            = "3.2.2"
 // val wdsubVersion            = "0.0.16"
 val shexsVersion            = "0.2.16"
-val srdfVersion             = "0.1.122"
-val utilsVersion            = "0.2.25"
+val pschemaVersion          = "0.1.5"
 
 val catsVersion             = "2.8.0"
 val declineVersion          = "2.2.0"
@@ -49,12 +48,9 @@ libraryDependencies ++= Seq(
   "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.13.3",
 
   // WESO components dependencies.
-  "es.weso" %% "srdf"         % srdfVersion,
-  "es.weso" %% "srdfjena"     % srdfVersion,
-  "es.weso" %% "srdf4j"       % srdfVersion,
-  "es.weso" %% "utils"        % utilsVersion,
   "es.weso" %% "shex"         % shexsVersion,
   "es.weso" %% "wshex"        % shexsVersion,
+  "es.weso" %% "pschema"        % pschemaVersion,
 
   // Cats dependencies.
   "org.typelevel" %% "cats-core"    % catsVersion,
